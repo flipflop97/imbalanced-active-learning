@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+import argparse
 import numpy
 import torch
 import pytorch_lightning as pl
@@ -44,24 +45,22 @@ def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.L
 
 
 class MNISTDataModule(pl.LightningDataModule):
-	def __init__(self, data_dir:str="./datasets", batch_size:int=16):
+	def __init__(self, data_dir: str, train_batch_size: int, val_batch_size: int, balance: list, initial_labels: int):
 		super().__init__()
 
-		self.data_dir = data_dir
-		self.batch_size = batch_size
-
+		self.save_hyperparameters()
 		self.transform = torchvision.transforms.ToTensor()
 
 
 	def prepare_data(self):
-		torchvision.datasets.MNIST(self.data_dir, train=True, download=True)
-		torchvision.datasets.MNIST(self.data_dir, train=False, download=True)
+		torchvision.datasets.MNIST(self.hparams.data_dir, train=True, download=True)
+		torchvision.datasets.MNIST(self.hparams.data_dir, train=False, download=True)
 
 
 	def setup(self, stage:str=None):
 		if stage == "fit" or stage == "validate" or stage is None:
 			data_full = torchvision.datasets.MNIST(
-				self.data_dir,
+				self.hparams.data_dir,
 				train=True,
 				transform=self.transform
 			)
@@ -71,13 +70,13 @@ class MNISTDataModule(pl.LightningDataModule):
 				data_full,
 				[50000, 10000]
 			)
-			balance_classes(self.data_unlabeled, [0.1]*5 + [1.0]*5)
+			balance_classes(self.data_unlabeled, self.hparams.balance)
 			self.data_train = torch.utils.data.Subset(data_full, [])
-			label_randomly(self, 500)
+			label_randomly(self, self.hparams.initial_labels)
 
 		if stage == "test" or stage is None:
 			self.data_test = torchvision.datasets.MNIST(
-				self.data_dir,
+				self.hparams.data_dir,
 				train=False,
 				transform=self.transform
 			)
@@ -86,7 +85,7 @@ class MNISTDataModule(pl.LightningDataModule):
 	def train_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_train,
-			batch_size=self.batch_size,
+			batch_size=self.hparams.train_batch_size,
 			shuffle=True,
 			num_workers=4
 		)
@@ -94,30 +93,31 @@ class MNISTDataModule(pl.LightningDataModule):
 	def val_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_val,
-			batch_size=256,
+			batch_size=self.hparams.val_batch_size,
 			num_workers=4
 		)
 
 	def test_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
-			batch_size=256,
+			batch_size=self.hparams.val_batch_size,
 			num_workers=4
 		)
 
 	def unlabeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
-			batch_size=256,
+			batch_size=self.hparams.val_batch_size,
 			num_workers=4
 		)
 
 
 class ALModel28(pl.LightningModule):
-	def __init__(self, learning_rate:float=1e-4):
+	def __init__(self, learning_rate: float):
 		super().__init__()
 
-		self.learning_rate = learning_rate
+		self.save_hyperparameters()
+
 		self.accuracy = torchmetrics.Accuracy()
 
 		self.classifier = torch.nn.Sequential(
@@ -183,23 +183,32 @@ class ALModel28(pl.LightningModule):
 
 
 	def configure_optimizers(self):
-		return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+		return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
 
 def main():
+	parser = argparse.ArgumentParser()
+
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
 		monitor="validation loss",
 		patience=5
 	)
-
 	trainer = pl.Trainer(
 		log_every_n_steps=10,
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
-
-	model = ALModel28()
-	mnist = MNISTDataModule()
+	model = ALModel28(
+		learning_rate=1e-4
+	)
+	mnist = MNISTDataModule(
+		data_dir="./datasets",
+		train_batch_size=16,
+		val_batch_size=256,
+		balance=[0.1]*5 + [1.0]*5,
+		initial_labels=500
+	)
+	aquisition_labels = 100
 
 	for _ in range(20):
 		trainer.fit(model, mnist)
@@ -208,8 +217,8 @@ def main():
 		# Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(numpy.Inf)
 
-		# label_randomly(mnist, 100)
-		label_uncertain(mnist, 100, model)
+		# label_randomly(mnist, aquisition_labels)
+		label_uncertain(mnist, aquisition_labels, model)
 
 
 if __name__ == "__main__":
