@@ -44,8 +44,9 @@ def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.L
 	label_indices(datamodule, chosen_indices)
 
 
+
 class MNISTDataModule(pl.LightningDataModule):
-	def __init__(self, data_dir: str, train_batch_size: int, val_batch_size: int, balance: list, initial_labels: int):
+	def __init__(self, **kwargs):
 		super().__init__()
 
 		self.save_hyperparameters()
@@ -70,7 +71,7 @@ class MNISTDataModule(pl.LightningDataModule):
 				data_full,
 				[50000, 10000]
 			)
-			balance_classes(self.data_unlabeled, self.hparams.balance)
+			balance_classes(self.data_unlabeled, self.hparams.class_balance)
 			self.data_train = torch.utils.data.Subset(data_full, [])
 			label_randomly(self, self.hparams.initial_labels)
 
@@ -93,27 +94,28 @@ class MNISTDataModule(pl.LightningDataModule):
 	def val_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_val,
-			batch_size=self.hparams.val_batch_size,
+			batch_size=self.hparams.eval_batch_size,
 			num_workers=4
 		)
 
 	def test_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
-			batch_size=self.hparams.val_batch_size,
+			batch_size=self.hparams.eval_batch_size,
 			num_workers=4
 		)
 
 	def unlabeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
-			batch_size=self.hparams.val_batch_size,
+			batch_size=self.hparams.eval_batch_size,
 			num_workers=4
 		)
 
 
+
 class ALModel28(pl.LightningModule):
-	def __init__(self, learning_rate: float):
+	def __init__(self, **kwargs):
 		super().__init__()
 
 		self.save_hyperparameters()
@@ -186,39 +188,83 @@ class ALModel28(pl.LightningModule):
 		return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
 
 
+
 def main():
-	parser = argparse.ArgumentParser()
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.ArgumentDefaultsHelpFormatter
+	)
+
+	# Model related
+	parser.add_argument(
+		'--learning-rate', type=float, default=1e-4,
+		help="Multiplier used to tweak model parameters"
+	)
+	parser.add_argument(
+		'--train-batch-size', type=int, default=16,
+		help="Batch size used for training the model"
+	)
+
+	# Active learning related
+	parser.add_argument(
+		'--early-stopping-patience', type=int, default=5,
+		help="Epochs to wait before stopping training and asking for new data"
+	)
+	parser.add_argument( # This should probably be made dataset-independant
+		'--class-balance', type=list, default=[0.1]*5 + [1.0]*5,
+		help="List of class balance multipliers"
+	)
+	parser.add_argument(
+		'--aquisition-method', type=str, default='random',
+		choices=['random', 'uncertain'],
+		help="The unlabeled data aquisition method to use"
+	)
+	parser.add_argument(
+		'--initial-labels', type=int, default=500,
+		help="The amount of initially labeled datapoints"
+	)
+	parser.add_argument(
+		'--aquisition-labels', type=int, default=100,
+		help="The amount of datapoints to be labeled per aquisition step"
+	)
+
+	# Device related
+	parser.add_argument(
+		'--data-dir', type=str, default='./datasets',
+		help="Multiplier used to tweak model parameters"
+	)
+	parser.add_argument(
+		'--eval-batch-size', type=int, default=256,
+		help="Batch size used for evaluating the model"
+	)
+
+	args = parser.parse_args()
 
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
 		monitor="validation loss",
-		patience=5
+		patience=args.early_stopping_patience
 	)
 	trainer = pl.Trainer(
 		log_every_n_steps=10,
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
-	model = ALModel28(
-		learning_rate=1e-4
-	)
-	mnist = MNISTDataModule(
-		data_dir="./datasets",
-		train_batch_size=16,
-		val_batch_size=256,
-		balance=[0.1]*5 + [1.0]*5,
-		initial_labels=500
-	)
-	aquisition_labels = 100
+	model = ALModel28(**vars(args))
+	mnist = MNISTDataModule(**vars(args))
 
 	for _ in range(20):
 		trainer.fit(model, mnist)
 		trainer.test(model, mnist)
 
-		# Could this be moved to on_train_end?
+		# TODO Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(numpy.Inf)
 
-		# label_randomly(mnist, aquisition_labels)
-		label_uncertain(mnist, aquisition_labels, model)
+		# TODO Would it be possible to do this in a callback?
+		if args.aquisition_method == 'random':
+			label_randomly(mnist, args.aquisition_labels)
+		elif args.aquisition_method == 'uncertain':
+			label_uncertain(mnist, args.aquisition_labels, model)
+		else:
+			raise ValueError('Given aquisition method is not available')
 
 
 if __name__ == "__main__":
