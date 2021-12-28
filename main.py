@@ -34,9 +34,23 @@ def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.L
 	with torch.no_grad():
 		for batch in datamodule.unlabeled_dataloader():
 			x, _ = batch
-			y_hat = model(x)
+			y_hat, _ = model(x)
 			preds = torch.nn.functional.softmax(y_hat, 1)
 			uncertainty_list.append(-(preds * preds.log()).sum(1))
+
+	uncertainty = torch.cat(uncertainty_list)
+	top_uncertainties, top_indices = uncertainty.topk(amount)
+	chosen_indices = [datamodule.data_unlabeled.indices[i] for i in top_indices]
+	label_indices(datamodule, chosen_indices)
+
+
+def label_highest_loss(datamodule: pl.LightningDataModule, amount: int, model: pl.LightningModule):
+	uncertainty_list = []
+	with torch.no_grad():
+		for batch in datamodule.unlabeled_dataloader():
+			x, _ = batch
+			_, losses_hat = model(x)
+			uncertainty_list.append(losses_hat)
 
 	uncertainty = torch.cat(uncertainty_list)
 	top_uncertainties, top_indices = uncertainty.topk(amount)
@@ -66,7 +80,6 @@ class MNISTDataModule(pl.LightningDataModule):
 				transform=self.transform
 			)
 
-			# Split off validation set
 			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
 				data_full,
 				[50000, 10000]
@@ -122,28 +135,51 @@ class ALModel28(pl.LightningModule):
 
 		self.accuracy = torchmetrics.Accuracy()
 
-		self.classifier = torch.nn.Sequential(
+		self.convolutional = torch.nn.Sequential(
 			torch.nn.Conv2d(1, 6, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
 			torch.nn.Conv2d(6, 16, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
 			torch.nn.Flatten(1),
-			torch.nn.Linear(16*5*5, 128), torch.nn.ReLU(),
+			torch.nn.Linear(16*5*5, 128), torch.nn.ReLU()
+		)
+
+		self.classifier = torch.nn.Sequential(
 			torch.nn.Linear(128, 64), torch.nn.ReLU(),
 			torch.nn.Linear(64, 10)
 		)
 
+		if self.hparams.aquisition_method == 'learning-loss':
+			self.learning_loss = torch.nn.Sequential(
+				torch.nn.Linear(128, 64), torch.nn.ReLU(),
+				torch.nn.Linear(64, 1)
+			)
+
 
 	def forward(self, x):
-		preds = self.classifier(x)
+		h = self.convolutional(x)
+		preds = self.classifier(h)
 
-		return preds
+		if self.hparams.aquisition_method == 'learning-loss':
+			# TODO should h be detached to avoid double cnn learning or not?
+			pred_loss = self.learning_loss(h.detach()).squeeze()
+			
+			return preds, pred_loss
+		else:
+			return preds, None
 
 
 	def training_step(self, batch, batch_idx):
 		x, y = batch
-		y_hat = self(x)
+		y_hat, losses_hat = self(x)
 
 		loss = torch.nn.functional.cross_entropy(y_hat, y)
-		self.log("training loss", loss)
+		self.log("training classification loss", loss)
+
+		if self.hparams.aquisition_method == 'learning-loss':
+			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			self.log("training loss loss", loss_loss)
+
+			loss += self.hparams.learning_loss_factor * loss_loss
 
 		return loss
 
@@ -157,29 +193,39 @@ class ALModel28(pl.LightningModule):
 
 	def validation_step(self, batch, batch_idx):
 		x, y = batch
-		y_hat = self(x)
+		y_hat, losses_hat = self(x)
 
 		loss = torch.nn.functional.cross_entropy(y_hat, y)
-		self.log("validation loss", loss)
+		self.log("validation classification loss", loss)
 
 		accuracy = self.accuracy(y_hat, y)
-		self.log("validation accuracy", accuracy)
+		self.log("validation classification accuracy", accuracy)
 
 		num_labeled = float(len(self.trainer.datamodule.data_train.indices))
 		self.log("labeled data", num_labeled)
+
+		if self.hparams.aquisition_method == 'learning-loss':
+			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			self.log("validation loss loss", loss_loss)
 
 		return loss
 
 
 	def test_step(self, batch, batch_idx):
 		x, y = batch
-		y_hat = self(x)
+		y_hat, losses_hat = self(x)
 
 		loss = torch.nn.functional.cross_entropy(y_hat, y)
-		self.log("test loss", loss)
+		self.log("test classification loss", loss)
 
 		accuracy = self.accuracy(y_hat, y)
-		self.log("test accuracy", accuracy)
+		self.log("test classification accuracy", accuracy)
+
+		if self.hparams.aquisition_method == 'learning-loss':
+			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			self.log("test loss loss", loss_loss)
 
 		return loss
 
@@ -203,6 +249,10 @@ def main():
 		'--train-batch-size', type=int, default=16,
 		help="Batch size used for training the model"
 	)
+	parser.add_argument(
+		'--min-epochs', type=int, default=25,
+		help="Minimum epochs to train before switching to the early stopper"
+	)
 
 	# Active learning related
 	parser.add_argument(
@@ -215,7 +265,7 @@ def main():
 	)
 	parser.add_argument(
 		'--aquisition-method', type=str, default='random',
-		choices=['random', 'uncertain'],
+		choices=['random', 'uncertain', 'learning-loss'],
 		help="The unlabeled data aquisition method to use"
 	)
 	parser.add_argument(
@@ -223,8 +273,12 @@ def main():
 		help="The amount of initially labeled datapoints"
 	)
 	parser.add_argument(
-		'--aquisition-labels', type=int, default=100,
+		'--batch-budget', type=int, default=100,
 		help="The amount of datapoints to be labeled per aquisition step"
+	)
+	parser.add_argument( # TODO Make this dependant on aquisition method
+		'--learning-loss-factor', type=float, default=0.1,
+		help="Multiplier used on top of the learning rate for the additional learning loss"
 	)
 
 	# Device related
@@ -240,17 +294,19 @@ def main():
 	args = parser.parse_args()
 
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
-		monitor="validation loss",
+		monitor="validation classification loss",
 		patience=args.early_stopping_patience
 	)
 	trainer = pl.Trainer(
 		log_every_n_steps=10,
+		min_epochs=args.min_epochs,
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
 	model = ALModel28(**vars(args))
 	mnist = MNISTDataModule(**vars(args))
 
+	# TODO Think of a more appropriate limit
 	for _ in range(20):
 		trainer.fit(model, mnist)
 		trainer.test(model, mnist)
@@ -260,9 +316,11 @@ def main():
 
 		# TODO Would it be possible to do this in a callback?
 		if args.aquisition_method == 'random':
-			label_randomly(mnist, args.aquisition_labels)
+			label_randomly(mnist, args.batch_budget)
 		elif args.aquisition_method == 'uncertain':
-			label_uncertain(mnist, args.aquisition_labels, model)
+			label_uncertain(mnist, args.batch_budget, model)
+		elif args.aquisition_method == 'learning-loss':
+			label_highest_loss(mnist, args.batch_budget, model)
 		else:
 			raise ValueError('Given aquisition method is not available')
 
