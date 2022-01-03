@@ -58,6 +58,38 @@ def label_highest_loss(datamodule: pl.LightningDataModule, amount: int, model: p
 	label_indices(datamodule, chosen_indices)
 
 
+def label_core_set(datamodule: pl.LightningDataModule, amount: int, model: pl.LightningModule):
+	# Each time, get the unlabeled data point with the largest minimum distance to a labeled data point
+
+	batch_size = datamodule.hparams.eval_batch_size
+
+	for i in range(amount):
+		max_min_dist = 0
+
+		with torch.no_grad():
+			for batch_num, batch_unlabeled in enumerate(datamodule.unlabeled_dataloader()):
+				x_unlabeled, _ = batch_unlabeled
+				features_unlabeled = model.convolutional(x_unlabeled)
+
+				# TODO With some magic this could be made 1 loop which is probably a lot faster
+				for item_num, squares_unlabeled in enumerate(features_unlabeled**2):
+					cur_id = batch_size * batch_num + item_num
+					print(f"Label {i}, point {cur_id}", end="\r")
+
+					# TODO This should be cached
+					for batch_labeled in datamodule.train_dataloader():
+						x_labeled, _ = batch_labeled
+						features_labeled = model.convolutional(x_labeled)
+
+						cur_min_dist = ((features_labeled**2 - squares_unlabeled)**0.5).min()
+					
+					if cur_min_dist > max_min_dist:
+						max_min_dist = cur_min_dist
+						max_id = cur_id
+		
+		label_indices(datamodule, [max_id])
+
+
 
 class MNISTDataModule(pl.LightningDataModule):
 	def __init__(self, **kwargs):
@@ -265,7 +297,7 @@ def main():
 	)
 	parser.add_argument(
 		'--aquisition-method', type=str, default='random',
-		choices=['random', 'uncertain', 'learning-loss'],
+		choices=['random', 'uncertain', 'learning-loss', 'core-set'],
 		help="The unlabeled data aquisition method to use"
 	)
 	parser.add_argument(
@@ -321,6 +353,8 @@ def main():
 			label_uncertain(mnist, args.batch_budget, model)
 		elif args.aquisition_method == 'learning-loss':
 			label_highest_loss(mnist, args.batch_budget, model)
+		elif args.aquisition_method == 'core-set':
+			label_core_set(mnist, args.batch_budget, model)
 		else:
 			raise ValueError('Given aquisition method is not available')
 
