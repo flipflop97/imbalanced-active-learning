@@ -64,28 +64,31 @@ def label_core_set(datamodule: pl.LightningDataModule, amount: int, model: pl.Li
 	for i in range(amount):
 		max_min_dist = 0
 		cache_labeled = []
+		
+		print(f"Label {i}", end="\r")
 
-		for batch_labeled in datamodule.train_dataloader():
+		for batch_labeled in datamodule.labeled_dataloader():
 			x_labeled, _ = batch_labeled
-			cache_labeled.append(model.convolutional(x_labeled)**2)
+			cache_labeled.append(model.convolutional(x_labeled))
 	
-		for batch_num, batch_unlabeled in enumerate(datamodule.unlabeled_dataloader()):
+		for batch_index, batch_unlabeled in enumerate(datamodule.unlabeled_dataloader()):
 			x_unlabeled, _ = batch_unlabeled
 			features_unlabeled = model.convolutional(x_unlabeled)
-
-			print(f"Label {i}, point {batch_num*batch_size:05d}", end="\r")
-
-			# TODO With some magic this could be made 1 loop which is probably a lot faster
-			for item_num, squares_unlabeled in enumerate(features_unlabeled**2):
-				for squares_labeled in cache_labeled:
-					# Square root was omitted for efficiency
-					cur_min_dist = (squares_labeled - squares_unlabeled).min()
-				
-				if cur_min_dist > max_min_dist:
-					max_min_dist = cur_min_dist
-					max_id = batch_size * batch_num + item_num
 	
-	label_indices(datamodule, [max_id])
+			min_dist = torch.full([len(features_unlabeled)], numpy.Inf)
+			for features_labeled in cache_labeled:
+				uu = features_unlabeled.pow(2).sum(1, keepdim=True).T
+				ll = features_labeled.pow(2).sum(1, keepdim=True)
+				lu = features_labeled @ features_unlabeled.T
+				# Square root was omitted as this doesn't affect the min
+				dist = uu + ll - 2*lu
+				min_dist = torch.min(min_dist, dist.min(0)[0])
+			
+			cur_index = (min_dist - max_min_dist).argmax()
+			max_min_dist = min_dist[cur_index]
+			chosen_index = batch_size * batch_index + cur_index
+
+		label_indices(datamodule, [chosen_index])
 
 
 
@@ -131,28 +134,35 @@ class MNISTDataModule(pl.LightningDataModule):
 			self.data_train,
 			batch_size=self.hparams.train_batch_size,
 			shuffle=True,
-			num_workers=4
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def val_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_val,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=4
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def test_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=4
+			num_workers=self.hparams.dataloader_workers
+		)
+
+	def labeled_dataloader(self):
+		return torch.utils.data.DataLoader(
+			self.data_train,
+			batch_size=self.hparams.eval_batch_size,
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def unlabeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=4
+			num_workers=self.hparams.dataloader_workers
 		)
 
 
@@ -317,8 +327,12 @@ def main():
 		help="Multiplier used to tweak model parameters"
 	)
 	parser.add_argument(
-		'--eval-batch-size', type=int, default=256,
+		'--eval-batch-size', type=int, default=1024,
 		help="Batch size used for evaluating the model"
+	)
+	parser.add_argument(
+		'--dataloader-workers', type=int, default=4,
+		help="Amount of workers used for dataloaders"
 	)
 
 	args = parser.parse_args()
@@ -356,6 +370,10 @@ def main():
 				label_core_set(mnist, args.batch_budget, model)
 			else:
 				raise ValueError('Given aquisition method is not available')
+		
+		# Check if labeling went correctly (debugging)
+		duplicates = len(trainer.datamodule.data_train.indices) - len(set(trainer.datamodule.data_train.indices))
+		assert duplicates == 0, "{duplicates} duplicate labeled items were found"
 
 
 if __name__ == "__main__":
