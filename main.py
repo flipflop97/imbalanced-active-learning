@@ -31,12 +31,11 @@ def label_randomly(datamodule: pl.LightningDataModule, amount: int):
 
 def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.LightningModule):
 	uncertainty_list = []
-	with torch.no_grad():
-		for batch in datamodule.unlabeled_dataloader():
-			x, _ = batch
-			y_hat, _ = model(x)
-			preds = torch.nn.functional.softmax(y_hat, 1)
-			uncertainty_list.append(-(preds * preds.log()).sum(1))
+	for batch in datamodule.unlabeled_dataloader():
+		x, _ = batch
+		y_hat, _ = model(x)
+		preds = torch.nn.functional.softmax(y_hat, 1)
+		uncertainty_list.append(-(preds * preds.log()).sum(1))
 
 	uncertainty = torch.cat(uncertainty_list)
 	top_uncertainties, top_indices = uncertainty.topk(amount)
@@ -46,11 +45,10 @@ def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.L
 
 def label_highest_loss(datamodule: pl.LightningDataModule, amount: int, model: pl.LightningModule):
 	uncertainty_list = []
-	with torch.no_grad():
-		for batch in datamodule.unlabeled_dataloader():
-			x, _ = batch
-			_, losses_hat = model(x)
-			uncertainty_list.append(losses_hat)
+	for batch in datamodule.unlabeled_dataloader():
+		x, _ = batch
+		_, losses_hat = model(x)
+		uncertainty_list.append(losses_hat)
 
 	uncertainty = torch.cat(uncertainty_list)
 	top_uncertainties, top_indices = uncertainty.topk(amount)
@@ -65,29 +63,29 @@ def label_core_set(datamodule: pl.LightningDataModule, amount: int, model: pl.Li
 
 	for i in range(amount):
 		max_min_dist = 0
+		cache_labeled = []
 
-		with torch.no_grad():
-			for batch_num, batch_unlabeled in enumerate(datamodule.unlabeled_dataloader()):
-				x_unlabeled, _ = batch_unlabeled
-				features_unlabeled = model.convolutional(x_unlabeled)
+		for batch_labeled in datamodule.train_dataloader():
+			x_labeled, _ = batch_labeled
+			cache_labeled.append(model.convolutional(x_labeled)**2)
+	
+		for batch_num, batch_unlabeled in enumerate(datamodule.unlabeled_dataloader()):
+			x_unlabeled, _ = batch_unlabeled
+			features_unlabeled = model.convolutional(x_unlabeled)
 
-				# TODO With some magic this could be made 1 loop which is probably a lot faster
-				for item_num, squares_unlabeled in enumerate(features_unlabeled**2):
-					cur_id = batch_size * batch_num + item_num
-					print(f"Label {i}, point {cur_id}", end="\r")
+			print(f"Label {i}, point {batch_num*batch_size:05d}", end="\r")
 
-					# TODO This should be cached
-					for batch_labeled in datamodule.train_dataloader():
-						x_labeled, _ = batch_labeled
-						features_labeled = model.convolutional(x_labeled)
-
-						cur_min_dist = ((features_labeled**2 - squares_unlabeled)**0.5).min()
-					
-					if cur_min_dist > max_min_dist:
-						max_min_dist = cur_min_dist
-						max_id = cur_id
-		
-		label_indices(datamodule, [max_id])
+			# TODO With some magic this could be made 1 loop which is probably a lot faster
+			for item_num, squares_unlabeled in enumerate(features_unlabeled**2):
+				for squares_labeled in cache_labeled:
+					# Square root was omitted for efficiency
+					cur_min_dist = (squares_labeled - squares_unlabeled).min()
+				
+				if cur_min_dist > max_min_dist:
+					max_min_dist = cur_min_dist
+					max_id = batch_size * batch_num + item_num
+	
+	label_indices(datamodule, [max_id])
 
 
 
@@ -347,16 +345,17 @@ def main():
 		early_stopping_callback.best_score = torch.tensor(numpy.Inf)
 
 		# TODO Would it be possible to do this in a callback?
-		if args.aquisition_method == 'random':
-			label_randomly(mnist, args.batch_budget)
-		elif args.aquisition_method == 'uncertain':
-			label_uncertain(mnist, args.batch_budget, model)
-		elif args.aquisition_method == 'learning-loss':
-			label_highest_loss(mnist, args.batch_budget, model)
-		elif args.aquisition_method == 'core-set':
-			label_core_set(mnist, args.batch_budget, model)
-		else:
-			raise ValueError('Given aquisition method is not available')
+		with torch.no_grad():
+			if args.aquisition_method == 'random':
+				label_randomly(mnist, args.batch_budget)
+			elif args.aquisition_method == 'uncertain':
+				label_uncertain(mnist, args.batch_budget, model)
+			elif args.aquisition_method == 'learning-loss':
+				label_highest_loss(mnist, args.batch_budget, model)
+			elif args.aquisition_method == 'core-set':
+				label_core_set(mnist, args.batch_budget, model)
+			else:
+				raise ValueError('Given aquisition method is not available')
 
 
 if __name__ == "__main__":
