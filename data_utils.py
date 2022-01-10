@@ -10,13 +10,18 @@ def balance_classes(subset: torch.utils.data.Subset, balance: list):
 		for c, _ in enumerate(subset.dataset.classes)
 	]
 	ref = min(len(indices) / balance[c] for c, indices in enumerate(class_indices))
-	balanced_indices = [random.sample(indices, int(ref * balance[c])) for c, indices in enumerate(class_indices)]
+	balanced_indices = [random.sample(indices, int(ref * balance[c]))
+        for c, indices in enumerate(class_indices)
+    ]
 	subset.indices = sum(balanced_indices, [])
 
 
 def label_indices(datamodule: pl.LightningDataModule, indices: list):
 	datamodule.data_train.indices += indices
-	datamodule.data_unlabeled.indices = [index for index in datamodule.data_unlabeled.indices if index not in indices]
+	datamodule.data_unlabeled.indices = [index
+        for index in datamodule.data_unlabeled.indices
+        if index not in indices
+    ]
 
 
 def label_randomly(datamodule: pl.LightningDataModule, amount: int):

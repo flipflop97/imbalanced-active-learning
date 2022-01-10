@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 
 import data_utils
 import modules_mnist
+import modules_cifar10
 
 
 def parse_arguments(*args, **kwargs):
@@ -24,8 +25,13 @@ def parse_arguments(*args, **kwargs):
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
-		'--min-epochs', type=int, default=25,
+		'--min-epochs', type=int, default=30,
 		help="Minimum epochs to train before switching to the early stopper"
+	)
+	parser.add_argument(
+		'--dataset', type=str, default='mnist',
+		choices=['mnist', 'cifar10'],
+		help="The dataset and corresponding model"
 	)
 
 	# Active learning related
@@ -85,13 +91,19 @@ def main():
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
-	model = modules_mnist.ALModel28(**vars(args))
-	mnist = modules_mnist.MNISTDataModule(**vars(args))
+	if args.dataset == 'mnist':
+		model = modules_mnist.MNISTModel(**vars(args))
+		datamodule = modules_mnist.MNISTDataModule(**vars(args))
+	elif args.dataset == 'cifar10':
+		model = modules_cifar10.CIFAR10Model(**vars(args))
+		datamodule = modules_cifar10.CIFAR10DataModule(**vars(args))
+	else:
+		raise ValueError('Given dataset is not available')
 
 	# TODO Think of a more appropriate limit
 	for _ in range(20):
-		trainer.fit(model, mnist)
-		trainer.test(model, mnist)
+		trainer.fit(model, datamodule)
+		trainer.test(model, datamodule)
 
 		# TODO Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(numpy.Inf)
@@ -99,13 +111,13 @@ def main():
 		# TODO Would it be possible to do this in a callback?
 		with torch.no_grad():
 			if args.aquisition_method == 'random':
-				data_utils.label_randomly(mnist, args.batch_budget)
+				data_utils.label_randomly(datamodule, args.batch_budget)
 			elif args.aquisition_method == 'uncertain':
-				data_utils.label_uncertain(mnist, args.batch_budget, model)
+				data_utils.label_uncertain(datamodule, args.batch_budget, model)
 			elif args.aquisition_method == 'learning-loss':
-				data_utils.label_highest_loss(mnist, args.batch_budget, model)
+				data_utils.label_highest_loss(datamodule, args.batch_budget, model)
 			elif args.aquisition_method == 'core-set':
-				data_utils.label_core_set(mnist, args.batch_budget, model)
+				data_utils.label_core_set(datamodule, args.batch_budget, model)
 			else:
 				raise ValueError('Given aquisition method is not available')
 

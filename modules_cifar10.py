@@ -6,19 +6,19 @@ import data_utils
 import modules_general
 
 
-class MNISTDataModule(modules_general.UALDataModule):
+class CIFAR10DataModule(modules_general.UALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
 
 	def prepare_data(self):
-		torchvision.datasets.MNIST(self.hparams.data_dir, train=True, download=True)
-		torchvision.datasets.MNIST(self.hparams.data_dir, train=False, download=True)
+		torchvision.datasets.CIFAR10(self.hparams.data_dir, train=True, download=True)
+		torchvision.datasets.CIFAR10(self.hparams.data_dir, train=False, download=True)
 
 
 	def setup(self, stage:str=None):
 		if stage == "fit" or stage == "validate" or stage is None:
-			data_full = torchvision.datasets.MNIST(
+			data_full = torchvision.datasets.CIFAR10(
 				self.hparams.data_dir,
 				train=True,
 				transform=self.transform
@@ -26,7 +26,7 @@ class MNISTDataModule(modules_general.UALDataModule):
 
 			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
 				data_full,
-				[50000, 10000]
+				[40000, 10000]
 			)
 			# TODO This could be baked into the general module too
 			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
@@ -34,7 +34,7 @@ class MNISTDataModule(modules_general.UALDataModule):
 			data_utils.label_randomly(self, self.hparams.initial_labels)
 
 		if stage == "test" or stage is None:
-			self.data_test = torchvision.datasets.MNIST(
+			self.data_test = torchvision.datasets.CIFAR10(
 				self.hparams.data_dir,
 				train=False,
 				transform=self.transform
@@ -42,15 +42,15 @@ class MNISTDataModule(modules_general.UALDataModule):
 
 
 
-class MNISTModel(modules_general.UALModel):
+class CIFAR10Model(modules_general.UALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 
 		self.convolutional = torch.nn.Sequential(
-			torch.nn.Conv2d(1, 6, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
+			torch.nn.Conv2d(3, 6, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
 			torch.nn.Conv2d(6, 16, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
 			torch.nn.Flatten(1),
-			torch.nn.Linear(16*5*5, 128), torch.nn.ReLU()
+			torch.nn.Linear(16*6*6, 128), torch.nn.ReLU()
 		)
 
 		self.classifier = torch.nn.Sequential(
