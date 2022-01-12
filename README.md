@@ -1,3 +1,3 @@
-# Unbalanced active learning
+# Imbalanced active learning
 
-Complementary code for my thesis on active learning for unbalanced data sets
+Complementary code for my thesis on active learning for imbalanced data sets

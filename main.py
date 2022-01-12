@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 import data_utils
 import modules_mnist
 import modules_cifar10
+import modules_svhn
 
 
 def parse_arguments(*args, **kwargs):
@@ -17,6 +18,11 @@ def parse_arguments(*args, **kwargs):
 
 	# Model related
 	parser.add_argument(
+		'dataset', type=str,
+		choices=['mnist', 'cifar10', 'svhn'],
+		help="The dataset and corresponding model"
+	)
+	parser.add_argument(
 		'--learning-rate', type=float, default=1e-4,
 		help="Multiplier used to tweak model parameters"
 	)
@@ -25,28 +31,23 @@ def parse_arguments(*args, **kwargs):
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
-		'--min-epochs', type=int, default=30,
+		'--min-epochs', type=int, default=50,
 		help="Minimum epochs to train before switching to the early stopper"
-	)
-	parser.add_argument(
-		'--dataset', type=str, default='mnist',
-		choices=['mnist', 'cifar10'],
-		help="The dataset and corresponding model"
 	)
 
 	# Active learning related
 	parser.add_argument(
-		'--early-stopping-patience', type=int, default=5,
+		'aquisition_method', type=str,
+		choices=['random', 'uncertain', 'learning-loss', 'core-set'],
+		help="The unlabeled data aquisition method to use"
+	)
+	parser.add_argument(
+		'--early-stopping-patience', type=int, default=10,
 		help="Epochs to wait before stopping training and asking for new data"
 	)
 	parser.add_argument( # This should probably be made dataset-independant
 		'--class-balance', type=list, default=[0.1]*5 + [1.0]*5,
 		help="List of class balance multipliers"
-	)
-	parser.add_argument(
-		'--aquisition-method', type=str, default='random',
-		choices=['random', 'uncertain', 'learning-loss', 'core-set'],
-		help="The unlabeled data aquisition method to use"
 	)
 	parser.add_argument(
 		'--initial-labels', type=int, default=500,
@@ -82,7 +83,8 @@ def main():
 	args = parse_arguments()
 
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
-		monitor="validation classification loss",
+		monitor="validation classification accuracy",
+		mode="max",
 		patience=args.early_stopping_patience
 	)
 	trainer = pl.Trainer(
@@ -97,6 +99,9 @@ def main():
 	elif args.dataset == 'cifar10':
 		model = modules_cifar10.CIFAR10Model(**vars(args))
 		datamodule = modules_cifar10.CIFAR10DataModule(**vars(args))
+	elif args.dataset == 'svhn':
+		model = modules_svhn.SVHNModel(**vars(args))
+		datamodule = modules_svhn.SVHNDataModule(**vars(args))
 	else:
 		raise ValueError('Given dataset is not available')
 
@@ -106,7 +111,7 @@ def main():
 		trainer.test(model, datamodule)
 
 		# TODO Could this be moved to on_train_end?
-		early_stopping_callback.best_score = torch.tensor(numpy.Inf)
+		early_stopping_callback.best_score = torch.tensor(0)
 
 		# TODO Would it be possible to do this in a callback?
 		with torch.no_grad():
