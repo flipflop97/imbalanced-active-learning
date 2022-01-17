@@ -22,12 +22,12 @@ dependencies:
   - click=8.0.3=py39hf3d152e_1
   - colorama=0.4.4=pyh9f0ad1d_0
   - cryptography=36.0.1=py39h95dcef6_0
-  - cudatoolkit=11.5.0=h36ae40a_9
+  - cudatoolkit=11.6.0=habf752d_9
   - cudnn=8.2.1.32=h86fa8c9_0
   - dataclasses=0.8=pyhc8e2a94_3
   - freetype=2.10.4=h0708190_1
   - frozenlist=1.2.0=py39h3811e60_1
-  - fsspec=2021.11.1=pyhd8ed1ab_0
+  - fsspec=2022.1.0=pyhd8ed1ab_0
   - future=0.18.2=py39hf3d152e_4
   - google-auth=2.3.3=pyh6c4a22f_0
   - google-auth-oauthlib=0.4.6=pyhd8ed1ab_0

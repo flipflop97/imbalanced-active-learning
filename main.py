@@ -50,11 +50,11 @@ def parse_arguments(*args, **kwargs):
 		help="List of class balance multipliers"
 	)
 	parser.add_argument(
-		'--initial-labels', type=int, default=500,
+		'--initial-labels', type=int, default=100,
 		help="The amount of initially labeled datapoints"
 	)
 	parser.add_argument(
-		'--batch-budget', type=int, default=100,
+		'--batch-budget', type=int, default=50,
 		help="The amount of datapoints to be labeled per aquisition step"
 	)
 	parser.add_argument( # TODO Make this dependant on aquisition method
@@ -77,6 +77,11 @@ def parse_arguments(*args, **kwargs):
 	)
 
 	return parser.parse_args(*args, **kwargs)
+
+
+def reset_weights(layer):
+	if hasattr(layer, 'reset_parameters'):
+		layer.reset_parameters()
 
 
 def main():
@@ -106,7 +111,9 @@ def main():
 		raise ValueError('Given dataset is not available')
 
 	# TODO Think of a more appropriate limit
-	for _ in range(20):
+	for _ in range(10):
+		model.apply(reset_weights)
+
 		trainer.fit(model, datamodule)
 		trainer.test(model, datamodule)
 
