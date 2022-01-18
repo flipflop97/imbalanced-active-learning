@@ -6,6 +6,7 @@ import torch
 import pytorch_lightning as pl
 
 import data_utils
+import modules_mnist_binary
 import modules_mnist
 import modules_cifar10
 import modules_svhn
@@ -19,7 +20,7 @@ def parse_arguments(*args, **kwargs):
 	# Model related
 	parser.add_argument(
 		'dataset', type=str,
-		choices=['mnist', 'cifar10', 'svhn'],
+		choices=['mnist-binary', 'mnist', 'cifar10', 'svhn'],
 		help="The dataset and corresponding model"
 	)
 	parser.add_argument(
@@ -27,7 +28,7 @@ def parse_arguments(*args, **kwargs):
 		help="Multiplier used to tweak model parameters"
 	)
 	parser.add_argument(
-		'--train-batch-size', type=int, default=16,
+		'--train-batch-size', type=int, default=8,
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
@@ -45,9 +46,9 @@ def parse_arguments(*args, **kwargs):
 		'--early-stopping-patience', type=int, default=10,
 		help="Epochs to wait before stopping training and asking for new data"
 	)
-	parser.add_argument( # This should probably be made dataset-independant
-		'--class-balance', type=list, default=[0.1]*5 + [1.0]*5,
-		help="List of class balance multipliers"
+	parser.add_argument(
+		'--class-balance', type=float, default=0.5,
+		help="Class balance multiplier for half of the classes"
 	)
 	parser.add_argument(
 		'--initial-labels', type=int, default=100,
@@ -98,7 +99,10 @@ def main():
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
-	if args.dataset == 'mnist':
+	if args.dataset == 'mnist-binary':
+		model = modules_mnist_binary.MNISTBinaryModel(**vars(args))
+		datamodule = modules_mnist_binary.MNISTBinaryDataModule(**vars(args))
+	elif args.dataset == 'mnist':
 		model = modules_mnist.MNISTModel(**vars(args))
 		datamodule = modules_mnist.MNISTDataModule(**vars(args))
 	elif args.dataset == 'cifar10':

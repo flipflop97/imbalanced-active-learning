@@ -57,3 +57,5 @@ class CIFAR10Model(modules_general.UALModel):
 			torch.nn.Linear(128, 64), torch.nn.ReLU(),
 			torch.nn.Linear(64, 10)
 		)
+
+		self.loss = torch.nn.functional.cross_entropy

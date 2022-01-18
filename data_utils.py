@@ -4,11 +4,16 @@ import torch
 import pytorch_lightning as pl
 
 
-def balance_classes(subset: torch.utils.data.Subset, balance: list):
+def balance_classes(subset: torch.utils.data.Subset, balance_factor: float):
 	class_indices = [
 		[index for index in subset.indices if subset.dataset.targets[index] == c]
 		for c, _ in enumerate(subset.dataset.classes)
 	]
+
+	head = len(class_indices) // 2
+	tail = len(class_indices) - head
+	balance = [balance_factor]*head + [1.0]*tail
+
 	ref = min(len(indices) / balance[c] for c, indices in enumerate(class_indices))
 	balanced_indices = [random.sample(indices, int(ref * balance[c]))
         for c, indices in enumerate(class_indices)
@@ -80,8 +85,7 @@ def label_core_set(datamodule: pl.LightningDataModule, amount: int, model: pl.Li
 				uu = features_unlabeled.pow(2).sum(1, keepdim=True).T
 				ll = features_labeled.pow(2).sum(1, keepdim=True)
 				lu = features_labeled @ features_unlabeled.T
-				# Square root was omitted as this doesn't affect the min
-				dist = uu + ll - 2*lu
+				dist = (uu + ll - 2*lu).sqrt()
 				min_dist = torch.min(min_dist, dist.min(0)[0])
 
 			cur_index = (min_dist - max_min_dist).argmax()

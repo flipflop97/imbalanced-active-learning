@@ -32,8 +32,8 @@ dependencies:
   - google-auth=2.3.3=pyh6c4a22f_0
   - google-auth-oauthlib=0.4.6=pyhd8ed1ab_0
   - grpcio=1.42.0=py39hff7568b_0
-  - idna=3.1=pyhd3deb0d_0
-  - importlib-metadata=4.10.0=py39hf3d152e_0
+  - idna=3.3=pyhd8ed1ab_0
+  - importlib-metadata=4.10.1=py39hf3d152e_0
   - jbig=2.1=h7f98852_2003
   - jpeg=9d=h36c2ea0_0
   - lcms2=2.12=hddcbb42_0
@@ -61,7 +61,7 @@ dependencies:
   - markdown=3.3.6=pyhd8ed1ab_0
   - mkl=2020.4=h726a3e6_304
   - multidict=5.2.0=py39h3811e60_1
-  - nccl=2.11.4.1=hdc17891_0
+  - nccl=2.11.4.1=h5c60f85_1
   - ncurses=6.2=h58526e2_4
   - ninja=1.10.2=h4bd325d_1
   - numpy=1.22.0=py39h91f2184_0
@@ -101,7 +101,7 @@ dependencies:
   - tensorboard-data-server=0.6.0=py39h95dcef6_1
   - tensorboard-plugin-wit=1.8.1=pyhd8ed1ab_0
   - tk=8.6.11=h27826a3_1
-  - torchmetrics=0.6.2=pyhd8ed1ab_0
+  - torchmetrics=0.7.0=pyhd8ed1ab_0
   - torchvision=0.10.1=py39cuda112hc5182df_0_cuda
   - tqdm=4.62.3=pyhd8ed1ab_0
   - typing-extensions=4.0.1=hd8ed1ab_0

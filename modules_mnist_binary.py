@@ -1,12 +1,13 @@
 
 import torch
+import torchmetrics
 import torchvision
 
 import data_utils
 import modules_general
 
 
-class MNISTDataModule(modules_general.UALDataModule):
+class MNISTBinaryDataModule(modules_general.UALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -24,6 +25,10 @@ class MNISTDataModule(modules_general.UALDataModule):
 				transform=self.transform
 			)
 
+			# Change labels to even (0) or odd (1) numbers
+			data_full.targets %= 2
+			data_full.classes = ['even', 'odd']
+
 			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
 				data_full,
 				[50000, 10000]
@@ -40,9 +45,13 @@ class MNISTDataModule(modules_general.UALDataModule):
 				transform=self.transform
 			)
 
+			# Change labels to even (0) or odd (1) numbers
+			self.data_test.targets %= 2
+			self.data_test.classes = ['even', 'odd']
 
 
-class MNISTModel(modules_general.UALModel):
+
+class MNISTBinaryModel(modules_general.UALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -55,7 +64,8 @@ class MNISTModel(modules_general.UALModel):
 
 		self.classifier = torch.nn.Sequential(
 			torch.nn.Linear(128, 64), torch.nn.ReLU(),
-			torch.nn.Linear(64, 10)
+			torch.nn.Linear(64, 1)
 		)
 
-		self.loss = torch.nn.functional.cross_entropy
+		self.loss = lambda pred, target, *args, **kwargs: \
+			torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)

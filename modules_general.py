@@ -70,9 +70,9 @@ class UALModel(pl.LightningModule):
 		self.save_hyperparameters()
 
 		self.accuracy = torchmetrics.Accuracy()
-
 		self.convolutional = None
 		self.classifier = None
+		self.loss = None
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			self.learning_loss = torch.nn.Sequential(
@@ -83,7 +83,7 @@ class UALModel(pl.LightningModule):
 
 	def forward(self, x):
 		h = self.convolutional(x)
-		preds = self.classifier(h)
+		preds = self.classifier(h).squeeze(1)
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			# TODO should h be detached to avoid double cnn learning or not?
@@ -98,11 +98,11 @@ class UALModel(pl.LightningModule):
 		x, y = batch
 		y_hat, losses_hat = self(x)
 
-		loss = torch.nn.functional.cross_entropy(y_hat, y)
+		loss = self.loss(y_hat, y)
 		self.log("training classification loss", loss)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			losses = self.loss(y_hat, y, reduction='none')
 			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
 			self.log("training loss loss", loss_loss)
 
@@ -115,14 +115,14 @@ class UALModel(pl.LightningModule):
 		self.trainer.fit_loop.current_epoch += 1
 
 		# To force skip early stopping the next epoch
-		self.trainer.fit_loop.min_epochs = self.trainer.fit_loop.current_epoch + 1
+		self.trainer.fit_loop.min_epochs = self.trainer.fit_loop.current_epoch + self.hparams.min_epochs
 
 
 	def validation_step(self, batch, batch_idx):
 		x, y = batch
 		y_hat, losses_hat = self(x)
 
-		loss = torch.nn.functional.cross_entropy(y_hat, y)
+		loss = self.loss(y_hat, y)
 		self.log("validation classification loss", loss)
 
 		accuracy = self.accuracy(y_hat, y)
@@ -132,7 +132,7 @@ class UALModel(pl.LightningModule):
 		self.log("labeled data", num_labeled)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			losses = self.loss(y_hat, y, reduction='none')
 			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
 			self.log("validation loss loss", loss_loss)
 
@@ -143,14 +143,14 @@ class UALModel(pl.LightningModule):
 		x, y = batch
 		y_hat, losses_hat = self(x)
 
-		loss = torch.nn.functional.cross_entropy(y_hat, y)
+		loss = self.loss(y_hat, y)
 		self.log("test classification loss", loss)
 
 		accuracy = self.accuracy(y_hat, y)
 		self.log("test classification accuracy", accuracy)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = torch.nn.functional.cross_entropy(y_hat, y, reduction='none')
+			losses = self.loss(y_hat, y, reduction='none')
 			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
 			self.log("test loss loss", loss_loss)
 
