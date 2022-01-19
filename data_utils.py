@@ -100,3 +100,42 @@ def label_core_set(datamodule: pl.LightningDataModule, amount: int, model: pl.Li
 			chosen_index = batch_size * batch_index + cur_index
 
 		label_indices(datamodule, [chosen_index])
+
+	print("Done labeling")
+
+
+def get_modules(args):
+	if args.dataset == 'mnist-binary':
+		import modules_mnist_binary
+		model = modules_mnist_binary.MNISTBinaryModel(**vars(args))
+		datamodule = modules_mnist_binary.MNISTBinaryDataModule(**vars(args))
+	elif args.dataset == 'mnist':
+		import modules_mnist
+		model = modules_mnist.MNISTModel(**vars(args))
+		datamodule = modules_mnist.MNISTDataModule(**vars(args))
+	elif args.dataset == 'cifar10':
+		import modules_cifar10
+		model = modules_cifar10.CIFAR10Model(**vars(args))
+		datamodule = modules_cifar10.CIFAR10DataModule(**vars(args))
+	elif args.dataset == 'svhn':
+		import modules_svhn
+		model = modules_svhn.SVHNModel(**vars(args))
+		datamodule = modules_svhn.SVHNDataModule(**vars(args))
+	else:
+		raise ValueError('Given dataset is not available')
+
+	return model, datamodule
+
+
+def label_data(args, model, datamodule):
+	with torch.no_grad():
+		if args.aquisition_method == 'random':
+			label_randomly(datamodule, args.batch_budget)
+		elif args.aquisition_method == 'uncertain':
+			label_uncertain(datamodule, args.batch_budget, model)
+		elif args.aquisition_method == 'learning-loss':
+			label_highest_loss(datamodule, args.batch_budget, model)
+		elif args.aquisition_method == 'core-set':
+			label_core_set(datamodule, args.batch_budget, model)
+		else:
+			raise ValueError('Given aquisition method is not available')

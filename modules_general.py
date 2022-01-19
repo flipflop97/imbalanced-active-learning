@@ -110,7 +110,7 @@ class UALModel(pl.LightningModule):
 		if self.hparams.aquisition_method == 'learning-loss':
 			# TODO should h be detached to avoid double cnn learning or not?
 			pred_loss = self.learning_loss(h.detach()).squeeze()
-			
+
 			return preds, pred_loss
 		else:
 			return preds, None
