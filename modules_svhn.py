@@ -2,7 +2,6 @@
 import torch
 import torchvision
 
-import data_utils
 import modules_general
 
 
@@ -16,36 +15,32 @@ class SVHNDataModule(modules_general.UALDataModule):
 		torchvision.datasets.SVHN(self.hparams.data_dir, split='test', download=True)
 
 
-	def setup(self, stage:str=None):
-		if stage == "fit" or stage == "validate" or stage is None:
-			# TODO Include extra split
-			data_full = torchvision.datasets.SVHN(
-				self.hparams.data_dir,
-				split='train',
-				transform=self.transform
-			)
-			# Needed for intra-dataset consistency
-			data_full.classes = list(map(str, range(10)))
-			data_full.targets = data_full.labels
+	def get_data_train(self):
+		data = torchvision.datasets.SVHN(
+			self.hparams.data_dir,
+			split='train',
+			transform=self.transform
+		)
 
-			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
-				data_full,
-				[63257, 10000]
-			)
-			# TODO This could be baked into the general module too
-			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
-			self.data_train = torch.utils.data.Subset(data_full, [])
-			data_utils.label_randomly(self, self.hparams.initial_labels)
+		# Needed for intra-dataset consistency
+		data.classes = list(map(str, range(10)))
+		data.targets = data.labels
 
-		if stage == "test" or stage is None:
-			self.data_test = torchvision.datasets.SVHN(
-				self.hparams.data_dir,
-				split='test',
-				transform=self.transform
-			)
-			# Needed for intra-dataset consistency
-			self.data_test.classes = list(map(str, range(10)))
-			self.data_test.targets = self.data_test.labels
+		return data
+
+
+	def get_data_test(self):
+		data = torchvision.datasets.SVHN(
+			self.hparams.data_dir,
+			split='test',
+			transform=self.transform
+		)
+
+		# Needed for intra-dataset consistency
+		data.classes = list(map(str, range(10)))
+		data.targets = data.labels
+
+		return data
 
 
 

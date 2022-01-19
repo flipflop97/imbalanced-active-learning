@@ -1,9 +1,7 @@
 
 import torch
-import torchmetrics
 import torchvision
 
-import data_utils
 import modules_general
 
 
@@ -17,37 +15,32 @@ class MNISTBinaryDataModule(modules_general.UALDataModule):
 		torchvision.datasets.MNIST(self.hparams.data_dir, train=False, download=True)
 
 
-	def setup(self, stage:str=None):
-		if stage == "fit" or stage == "validate" or stage is None:
-			data_full = torchvision.datasets.MNIST(
-				self.hparams.data_dir,
-				train=True,
-				transform=self.transform
-			)
+	def get_data_train(self):
+		data = torchvision.datasets.MNIST(
+			self.hparams.data_dir,
+			train=True,
+			transform=self.transform
+		)
 
-			# Change labels to even (0) or odd (1) numbers
-			data_full.targets %= 2
-			data_full.classes = ['even', 'odd']
+		# Change labels to even (0) or odd (1) numbers
+		data.targets %= 2
+		data.classes = ['even', 'odd']
 
-			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
-				data_full,
-				[50000, 10000]
-			)
-			# TODO This could be baked into the general module too
-			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
-			self.data_train = torch.utils.data.Subset(data_full, [])
-			data_utils.label_randomly(self, self.hparams.initial_labels)
+		return data
 
-		if stage == "test" or stage is None:
-			self.data_test = torchvision.datasets.MNIST(
-				self.hparams.data_dir,
-				train=False,
-				transform=self.transform
-			)
 
-			# Change labels to even (0) or odd (1) numbers
-			self.data_test.targets %= 2
-			self.data_test.classes = ['even', 'odd']
+	def get_data_test(self):
+		data = torchvision.datasets.MNIST(
+			self.hparams.data_dir,
+			train=False,
+			transform=self.transform
+		)
+
+		# Change labels to even (0) or odd (1) numbers
+		data.targets %= 2
+		data.classes = ['even', 'odd']
+
+		return data
 
 
 

@@ -4,6 +4,8 @@ import torchmetrics
 import torchvision
 import pytorch_lightning as pl
 
+import data_utils
+
 
 class UALDataModule(pl.LightningDataModule):
 	def __init__(self, **kwargs):
@@ -16,6 +18,25 @@ class UALDataModule(pl.LightningDataModule):
 		self.data_val = None
 		self.data_test = None
 		self.data_unlabeled = None
+
+
+	def setup(self, stage:str=None):
+		if stage == "fit" or stage == "validate" or stage is None:
+			data_full = self.get_data_train()
+
+			size_train = round(len(data_full) * self.hparams.train_split)
+			size_val = len(data_full) - size_train
+			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
+				data_full,
+				[size_train, size_val]
+			)
+			self.data_train = torch.utils.data.Subset(data_full, [])
+
+			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
+			data_utils.label_randomly(self, self.hparams.initial_labels)
+
+		if stage == "test" or stage is None:
+			self.data_test = self.get_data_test()
 
 
 	def train_dataloader(self):
@@ -69,9 +90,10 @@ class UALModel(pl.LightningModule):
 
 		self.save_hyperparameters()
 
-		self.accuracy = torchmetrics.Accuracy()
 		self.convolutional = None
 		self.classifier = None
+
+		self.accuracy = torchmetrics.Accuracy()
 		self.loss = None
 
 		if self.hparams.aquisition_method == 'learning-loss':

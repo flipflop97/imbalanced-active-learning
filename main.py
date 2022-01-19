@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import numpy
 import torch
 import pytorch_lightning as pl
 
@@ -17,11 +16,24 @@ def parse_arguments(*args, **kwargs):
 		formatter_class=argparse.ArgumentDefaultsHelpFormatter
 	)
 
+	def percentage(arg):
+		try:
+			f = float(arg)
+		except ValueError:
+			raise argparse.ArgumentTypeError(f"invalid float value: '{arg}'")
+		if f < 0 or f > 1:
+			raise argparse.ArgumentTypeError(f"value is not between 0 and 1: '{arg}'")
+		return f
+
 	# Model related
 	parser.add_argument(
 		'dataset', type=str,
 		choices=['mnist-binary', 'mnist', 'cifar10', 'svhn'],
 		help="The dataset and corresponding model"
+	)
+	parser.add_argument(
+		'--train-split', type=percentage, default=0.8,
+		help="Percentage of the data to be used for training, the rest will be used for validation"
 	)
 	parser.add_argument(
 		'--learning-rate', type=float, default=1e-4,
@@ -99,6 +111,7 @@ def main():
 		max_epochs=-1,
 		callbacks=[early_stopping_callback]
 	)
+
 	if args.dataset == 'mnist-binary':
 		model = modules_mnist_binary.MNISTBinaryModel(**vars(args))
 		datamodule = modules_mnist_binary.MNISTBinaryDataModule(**vars(args))
@@ -124,7 +137,6 @@ def main():
 		# TODO Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(0)
 
-		# TODO Would it be possible to do this in a callback?
 		with torch.no_grad():
 			if args.aquisition_method == 'random':
 				data_utils.label_randomly(datamodule, args.batch_budget)

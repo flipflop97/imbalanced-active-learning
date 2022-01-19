@@ -2,7 +2,6 @@
 import torch
 import torchvision
 
-import data_utils
 import modules_general
 
 
@@ -16,29 +15,20 @@ class CIFAR10DataModule(modules_general.UALDataModule):
 		torchvision.datasets.CIFAR10(self.hparams.data_dir, train=False, download=True)
 
 
-	def setup(self, stage:str=None):
-		if stage == "fit" or stage == "validate" or stage is None:
-			data_full = torchvision.datasets.CIFAR10(
-				self.hparams.data_dir,
-				train=True,
-				transform=self.transform
-			)
+	def get_data_train(self):
+		return torchvision.datasets.CIFAR10(
+			self.hparams.data_dir,
+			train=True,
+			transform=self.transform
+		)
 
-			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
-				data_full,
-				[40000, 10000]
-			)
-			# TODO This could be baked into the general module too
-			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
-			self.data_train = torch.utils.data.Subset(data_full, [])
-			data_utils.label_randomly(self, self.hparams.initial_labels)
 
-		if stage == "test" or stage is None:
-			self.data_test = torchvision.datasets.CIFAR10(
-				self.hparams.data_dir,
-				train=False,
-				transform=self.transform
-			)
+	def get_data_test(self):
+		return torchvision.datasets.CIFAR10(
+			self.hparams.data_dir,
+			train=False,
+			transform=self.transform
+		)
 
 
 

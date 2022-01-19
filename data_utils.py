@@ -39,11 +39,18 @@ def label_uncertain(datamodule: pl.LightningDataModule, amount: int, model: pl.L
 	for batch in datamodule.unlabeled_dataloader():
 		x, _ = batch
 		y_hat, _ = model(x)
-		preds = torch.nn.functional.softmax(y_hat, 1)
-		uncertainty_list.append(-(preds * preds.log()).sum(1))
+
+		try:
+			# Multiclass, softmax
+			preds = torch.nn.functional.softmax(y_hat, 1)
+			uncertainty_list.append(-(preds*preds.log()).sum(1))
+		except IndexError:
+			# Binary, sigmoid
+			preds = torch.sigmoid(y_hat)
+			uncertainty_list.append(-preds*preds.log() - (1-preds)*(1-preds).log())
 
 	uncertainty = torch.cat(uncertainty_list)
-	top_uncertainties, top_indices = uncertainty.topk(amount)
+	_, top_indices = uncertainty.topk(amount)
 	chosen_indices = [datamodule.data_unlabeled.indices[i] for i in top_indices]
 	label_indices(datamodule, chosen_indices)
 
@@ -56,7 +63,7 @@ def label_highest_loss(datamodule: pl.LightningDataModule, amount: int, model: p
 		uncertainty_list.append(losses_hat)
 
 	uncertainty = torch.cat(uncertainty_list)
-	top_uncertainties, top_indices = uncertainty.topk(amount)
+	_, top_indices = uncertainty.topk(amount)
 	chosen_indices = [datamodule.data_unlabeled.indices[i] for i in top_indices]
 	label_indices(datamodule, chosen_indices)
 
