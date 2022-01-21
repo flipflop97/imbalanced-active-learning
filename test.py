@@ -3,7 +3,6 @@
 import pytorch_lightning as pl
 
 import data_utils
-
 from main import parse_arguments
 
 
@@ -41,7 +40,7 @@ def test_aquisition_methods():
 		model, datamodule = data_utils.get_modules(args)
 		datamodule.setup('fit')
 
-		data_utils.label_data(args, model, datamodule)
+		datamodule.label_data(model)
 
 		assert \
 			len(datamodule.data_train.indices) == len(set(datamodule.data_train.indices)), \

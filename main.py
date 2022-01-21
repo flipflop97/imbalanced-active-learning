@@ -119,7 +119,7 @@ def main():
 		# TODO Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(0)
 
-		data_utils.label_data(args, model, datamodule)
+		datamodule.label_data(model)
 
 
 if __name__ == "__main__":
