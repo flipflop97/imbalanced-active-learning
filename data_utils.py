@@ -3,19 +3,23 @@ import torch
 
 
 def balance_classes(subset: torch.utils.data.Subset, balance_factor: float):
+	# Divide all indices into classes
 	class_indices = [
 		[index for index in subset.indices if subset.dataset.targets[index] == c]
 		for c, _ in enumerate(subset.dataset.classes)
 	]
 
+	# Generate class balance list
 	head = len(class_indices) // 2
 	tail = len(class_indices) - head
 	balance = [balance_factor]*head + [1.0]*tail
 
+	# Blance class_indices by the class balance weights
 	ref = min(len(indices) / balance[c] for c, indices in enumerate(class_indices))
 	balanced_indices = [random.sample(indices, int(ref * balance[c]))
         for c, indices in enumerate(class_indices)
     ]
+
 	subset.indices = sum(balanced_indices, [])
 
 

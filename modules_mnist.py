@@ -4,7 +4,7 @@ import torchvision
 import modules_general
 
 
-class MNISTDataModule(modules_general.UALDataModule):
+class MNISTDataModule(modules_general.IALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -31,7 +31,7 @@ class MNISTDataModule(modules_general.UALDataModule):
 
 
 
-class MNISTModel(modules_general.UALModel):
+class MNISTModel(modules_general.IALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 

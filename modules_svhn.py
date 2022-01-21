@@ -4,7 +4,7 @@ import torchvision
 import modules_general
 
 
-class SVHNDataModule(modules_general.UALDataModule):
+class SVHNDataModule(modules_general.IALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -43,7 +43,7 @@ class SVHNDataModule(modules_general.UALDataModule):
 
 
 
-class SVHNModel(modules_general.UALModel):
+class SVHNModel(modules_general.IALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 

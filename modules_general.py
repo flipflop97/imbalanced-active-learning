@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import data_utils
 
 
-class UALDataModule(pl.LightningDataModule):
+class IALDataModule(pl.LightningDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -25,6 +25,7 @@ class UALDataModule(pl.LightningDataModule):
 		if stage == "fit" or stage == "validate" or stage is None:
 			data_full = self.get_data_train()
 
+			# Split dataset in unlabeled and validation sets randomly
 			size_train = round(len(data_full) * self.hparams.train_split)
 			size_val = len(data_full) - size_train
 			self.data_unlabeled, self.data_val = torch.utils.data.random_split(
@@ -34,7 +35,10 @@ class UALDataModule(pl.LightningDataModule):
 			self.data_train = torch.utils.data.Subset(data_full, [])
 
 			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
-			self.label_randomly(self.hparams.initial_labels)
+
+			# Label 1 label of each class randomly, then label the rest randomly independant of classes
+			self.label_each_class()
+			self.label_randomly(self.hparams.initial_labels - len(data_full.classes))
 
 		if stage == "test" or stage is None:
 			self.data_test = self.get_data_test()
@@ -90,6 +94,16 @@ class UALDataModule(pl.LightningDataModule):
 			for index in self.data_unlabeled.indices
 			if index not in indices
 		]
+
+
+	def label_each_class(self, amount: int = 1):
+		return sum([
+			random.sample([index
+				for index in self.data_unlabeled.indices
+				if self.data_unlabeled.dataset.targets[index] == c
+			], amount)
+			for c, _ in enumerate(self.data_unlabeled.dataset.classes)
+		], [])
 
 
 	def label_randomly(self, amount: int):
@@ -182,7 +196,7 @@ class UALDataModule(pl.LightningDataModule):
 
 
 
-class UALModel(pl.LightningModule):
+class IALModel(pl.LightningModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 

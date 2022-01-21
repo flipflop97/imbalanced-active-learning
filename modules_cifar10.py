@@ -4,7 +4,7 @@ import torchvision
 import modules_general
 
 
-class CIFAR10DataModule(modules_general.UALDataModule):
+class CIFAR10DataModule(modules_general.IALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -31,7 +31,7 @@ class CIFAR10DataModule(modules_general.UALDataModule):
 
 
 
-class CIFAR10Model(modules_general.UALModel):
+class CIFAR10Model(modules_general.IALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 

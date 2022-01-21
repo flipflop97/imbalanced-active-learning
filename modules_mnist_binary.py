@@ -4,7 +4,7 @@ import torchvision
 import modules_general
 
 
-class MNISTBinaryDataModule(modules_general.UALDataModule):
+class MNISTBinaryDataModule(modules_general.IALDataModule):
 	def __init__(self, **kwargs):
 		super().__init__()
 
@@ -43,7 +43,7 @@ class MNISTBinaryDataModule(modules_general.UALDataModule):
 
 
 
-class MNISTBinaryModel(modules_general.UALModel):
+class MNISTBinaryModel(modules_general.IALModel):
 	def __init__(self, **kwargs):
 		super().__init__()
 
