@@ -6,6 +6,13 @@ import data_utils
 from main import parse_arguments
 
 
+TEXT_DEFAULT    = '\033[0m'
+TEXT_BOLD       = '\033[1m'
+TEXT_DIM        = '\033[2m'
+TEXT_ITALICS    = '\033[3m'
+TEXT_UNDERLINED = '\033[4m'
+
+
 def main():
 	test_datasets()
 	test_aquisition_methods()
@@ -13,6 +20,8 @@ def main():
 
 def test_datasets():
 	for dataset in ['mnist-binary', 'mnist', 'cifar10', 'svhn']:
+		print(f"\n{TEXT_BOLD}Testing dataset {dataset}{TEXT_DEFAULT}")
+
 		args = parse_arguments([
 			dataset,
 			'random'
@@ -20,7 +29,7 @@ def test_datasets():
 
 		trainer = pl.Trainer(
 			logger=None,
-			checkpoint_callback=False,
+			enable_checkpointing=False,
 			max_epochs=1
 		)
 		model, datamodule = data_utils.get_modules(args)
@@ -31,6 +40,8 @@ def test_datasets():
 
 def test_aquisition_methods():
 	for aquisition_method in ['random', 'uncertain', 'learning-loss', 'core-set']:
+		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
+
 		args = parse_arguments([
 			'mnist-binary',
 			aquisition_method,

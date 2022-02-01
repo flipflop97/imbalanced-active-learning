@@ -32,7 +32,7 @@ def parse_arguments(*args, **kwargs):
 		help="Percentage of the data to be used for training, the rest will be used for validation"
 	)
 	parser.add_argument(
-		'--learning-rate', type=float, default=1e-4,
+		'--learning-rate', type=float, default=5e-4,
 		help="Multiplier used to tweak model parameters"
 	)
 	parser.add_argument(
@@ -97,8 +97,8 @@ def main():
 	args = parse_arguments()
 
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
-		monitor="validation classification accuracy",
-		mode="max",
+		monitor="validation classification loss",
+		mode="min",
 		patience=args.early_stopping_patience
 	)
 	trainer = pl.Trainer(
@@ -117,7 +117,7 @@ def main():
 		trainer.test(model, datamodule)
 
 		# TODO Could this be moved to on_train_end?
-		early_stopping_callback.best_score = torch.tensor(0)
+		early_stopping_callback.best_score = torch.tensor(float('inf'))
 
 		datamodule.label_data(model)
 

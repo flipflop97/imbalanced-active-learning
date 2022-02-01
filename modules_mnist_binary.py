@@ -40,24 +40,3 @@ class MNISTBinaryDataModule(modules_general.IALDataModule):
 		data.classes = ['even', 'odd']
 
 		return data
-
-
-
-class MNISTBinaryModel(modules_general.IALModel):
-	def __init__(self, **kwargs):
-		super().__init__()
-
-		self.convolutional = torch.nn.Sequential(
-			torch.nn.Conv2d(1, 6, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
-			torch.nn.Conv2d(6, 16, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
-			torch.nn.Flatten(1),
-			torch.nn.Linear(16*5*5, 128), torch.nn.ReLU()
-		)
-
-		self.classifier = torch.nn.Sequential(
-			torch.nn.Linear(128, 64), torch.nn.ReLU(),
-			torch.nn.Linear(64, 1)
-		)
-
-		self.loss = lambda pred, target, *args, **kwargs: \
-			torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)

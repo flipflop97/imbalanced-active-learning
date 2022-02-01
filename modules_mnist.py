@@ -28,23 +28,3 @@ class MNISTDataModule(modules_general.IALDataModule):
 			train=False,
 			transform=self.transform
 		)
-
-
-
-class MNISTModel(modules_general.IALModel):
-	def __init__(self, **kwargs):
-		super().__init__()
-
-		self.convolutional = torch.nn.Sequential(
-			torch.nn.Conv2d(1, 6, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
-			torch.nn.Conv2d(6, 16, 3), torch.nn.ReLU(), torch.nn.MaxPool2d(2, 2),
-			torch.nn.Flatten(1),
-			torch.nn.Linear(16*5*5, 128), torch.nn.ReLU()
-		)
-
-		self.classifier = torch.nn.Sequential(
-			torch.nn.Linear(128, 64), torch.nn.ReLU(),
-			torch.nn.Linear(64, 10)
-		)
-
-		self.loss = torch.nn.functional.cross_entropy

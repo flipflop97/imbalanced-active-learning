@@ -132,6 +132,8 @@ class IALDataModule(pl.LightningDataModule):
 		self.label_indices(chosen_indices)
 
 
+	# Learning Loss for Active Learning
+	# Donggeun Yoo, In So Kweon
 	def label_highest_loss(self, amount: int, model: pl.LightningModule):
 		uncertainty_list = []
 		for batch in self.unlabeled_dataloader():
@@ -145,6 +147,8 @@ class IALDataModule(pl.LightningDataModule):
 		self.label_indices(chosen_indices)
 
 
+	# Active Learning for Convolutional Neural Networks: A Core-Set Approach
+	# Ozan Sener, Silvio Savarese
 	def label_core_set(self, amount: int, model: pl.LightningModule):
 		# Each time, get the unlabeled data point with the largest minimum distance to a labeled data point
 
@@ -197,47 +201,92 @@ class IALDataModule(pl.LightningDataModule):
 
 
 class IALModel(pl.LightningModule):
-	def __init__(self, **kwargs):
+	def __init__(self, 
+		image_size: int,
+		image_depth: int,
+		layers_conv: list,
+		layers_fc: list,
+		classes: int,
+		**kwargs
+	):
 		super().__init__()
 
 		self.save_hyperparameters()
+		
+		# TODO Make these hyperparameters
+		size_learning_loss = 16
+		conv_stride = 3
+		conv_pool = 2
 
-		self.convolutional = None
-		self.classifier = None
+		convolutional = []
+		size_prev = image_depth
+		final_size = image_size
+		for size in layers_conv:
+			convolutional += [
+				torch.nn.Conv2d(size_prev, size, conv_stride),
+				torch.nn.ReLU(),
+				torch.nn.MaxPool2d(conv_pool, conv_pool)
+			]
+			final_size = (final_size - conv_stride + 1) // conv_pool
+			size_prev = size
+		convolutional.append(torch.nn.Flatten(1))
+		self.convolutional = torch.nn.Sequential(*convolutional)
+
+		self.fully_connected = []
+		size_prev = layers_conv[-1] * final_size**2
+		for size in layers_fc:
+			self.fully_connected.append(torch.nn.Sequential(torch.nn.Linear(size_prev, size), torch.nn.ReLU()))
+			size_prev = size
+
+		self.classifier = torch.nn.Linear(layers_fc[-1], 1 if classes == 2 else classes)
+
+		if classes <= 2:
+			self.loss = lambda pred, target, *args, **kwargs: \
+				torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)
+		else:
+			self.loss = torch.nn.functional.cross_entropy
 
 		self.accuracy = torchmetrics.Accuracy()
-		self.loss = None
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			self.learning_loss = torch.nn.Sequential(
-				torch.nn.Linear(128, 64), torch.nn.ReLU(),
-				torch.nn.Linear(64, 1)
-			)
+			self.loss_layers = [
+				torch.nn.Sequential(torch.nn.Linear(size, size_learning_loss), torch.nn.ReLU())
+				for size in layers_fc
+			]
+
+			self.loss_regressor = torch.nn.Linear(size_learning_loss * len(layers_fc), 1)
 
 
-	def forward(self, x):
-		h = self.convolutional(x)
-		preds = self.classifier(h).squeeze(1)
+	def forward(self, images):
+		pred_loss = None
+		hidden = self.convolutional(images)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			# TODO should h be detached to avoid double cnn learning or not?
-			pred_loss = self.learning_loss(h.detach()).squeeze()
+			losses = []
+			for step, layer in enumerate(self.fully_connected):
+				hidden = layer(hidden)
+				losses.append(self.loss_layers[step](hidden.detach()))
 
-			return preds, pred_loss
+			pred_loss = self.loss_regressor(torch.cat(losses, 1)).squeeze()
 		else:
-			return preds, None
+			for layer in self.fully_connected:
+				hidden = layer(hidden)
+
+		preds = self.classifier(hidden).squeeze(1)
+
+		return preds, pred_loss
 
 
 	def training_step(self, batch, batch_idx):
-		x, y = batch
-		y_hat, losses_hat = self(x)
+		images, labels = batch
+		labels_hat, losses_hat = self(images)
 
-		loss = self.loss(y_hat, y)
+		loss = self.loss(labels_hat, labels)
 		self.log("training classification loss", loss)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = self.loss(y_hat, y, reduction='none')
-			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			losses = self.loss(labels_hat, labels, reduction='none')
+			loss_loss = data_utils.loss_loss(losses_hat, losses)
 			self.log("training loss loss", loss_loss)
 
 			loss += self.hparams.learning_loss_factor * loss_loss
@@ -253,39 +302,39 @@ class IALModel(pl.LightningModule):
 
 
 	def validation_step(self, batch, batch_idx):
-		x, y = batch
-		y_hat, losses_hat = self(x)
+		images, labels = batch
+		labels_hat, losses_hat = self(images)
 
-		loss = self.loss(y_hat, y)
+		loss = self.loss(labels_hat, labels)
 		self.log("validation classification loss", loss)
 
-		accuracy = self.accuracy(y_hat, y)
+		accuracy = self.accuracy(labels_hat, labels)
 		self.log("validation classification accuracy", accuracy)
 
 		num_labeled = float(len(self.trainer.datamodule.data_train.indices))
 		self.log("labeled data", num_labeled)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = self.loss(y_hat, y, reduction='none')
-			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			losses = self.loss(labels_hat, labels, reduction='none')
+			loss_loss = data_utils.loss_loss(losses_hat, losses)
 			self.log("validation loss loss", loss_loss)
 
 		return loss
 
 
 	def test_step(self, batch, batch_idx):
-		x, y = batch
-		y_hat, losses_hat = self(x)
+		images, labels = batch
+		labels_hat, losses_hat = self(images)
 
-		loss = self.loss(y_hat, y)
+		loss = self.loss(labels_hat, labels)
 		self.log("test classification loss", loss)
 
-		accuracy = self.accuracy(y_hat, y)
+		accuracy = self.accuracy(labels_hat, labels)
 		self.log("test classification accuracy", accuracy)
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			losses = self.loss(y_hat, y, reduction='none')
-			loss_loss = torch.nn.functional.mse_loss(losses_hat, losses)
+			losses = self.loss(labels_hat, labels, reduction='none')
+			loss_loss = data_utils.loss_loss(losses_hat, losses)
 			self.log("test loss loss", loss_loss)
 
 		return loss

@@ -22,7 +22,7 @@ dependencies:
   - click=8.0.3=py39hf3d152e_1
   - colorama=0.4.4=pyh9f0ad1d_0
   - cryptography=36.0.1=py39h95dcef6_0
-  - cudatoolkit=11.6.0=habf752d_9
+  - cudatoolkit=11.6.0=habf752d_10
   - cudnn=8.2.1.32=h86fa8c9_0
   - dataclasses=0.8=pyhc8e2a94_3
   - freetype=2.10.4=h0708190_1
@@ -35,7 +35,7 @@ dependencies:
   - idna=3.3=pyhd8ed1ab_0
   - importlib-metadata=4.10.1=py39hf3d152e_0
   - jbig=2.1=h7f98852_2003
-  - jpeg=9d=h36c2ea0_0
+  - jpeg=9e=h7f98852_0
   - lcms2=2.12=hddcbb42_0
   - ld_impl_linux-64=2.36.1=hea4e1c9_2
   - lerc=3.0=h9c3ff4c_0
@@ -43,17 +43,17 @@ dependencies:
   - libcblas=3.9.0=8_mkl
   - libdeflate=1.8=h7f98852_0
   - libffi=3.4.2=h7f98852_5
-  - libgcc-ng=11.2.0=h1d223b6_11
-  - libgfortran-ng=11.2.0=h69a702a_11
-  - libgfortran5=11.2.0=h5c6108e_11
+  - libgcc-ng=11.2.0=h1d223b6_12
+  - libgfortran-ng=11.2.0=h69a702a_12
+  - libgfortran5=11.2.0=h5c6108e_12
   - liblapack=3.9.0=8_mkl
   - libnsl=2.0.0=h7f98852_0
   - libpng=1.6.37=h21135ba_2
   - libprotobuf=3.15.8=h780b84a_1
-  - libstdcxx-ng=11.2.0=he4da1e4_11
+  - libstdcxx-ng=11.2.0=he4da1e4_12
   - libtiff=4.3.0=h6f004c6_2
   - libuuid=2.32.1=h7f98852_1000
-  - libwebp-base=1.2.2=h7f98852_0
+  - libwebp-base=1.2.2=h7f98852_1
   - libzlib=1.2.11=h36c2ea0_1013
   - llvm-openmp=12.0.1=h4bd325d_1
   - lz4-c=1.9.3=h9c3ff4c_1
@@ -61,7 +61,7 @@ dependencies:
   - markdown=3.3.6=pyhd8ed1ab_0
   - mkl=2020.4=h726a3e6_304
   - multidict=5.2.0=py39h3811e60_1
-  - nccl=2.11.4.1=h5c60f85_1
+  - nccl=2.11.4.1=h5c60f85_2
   - ncurses=6.3=h9c3ff4c_0
   - ninja=1.10.2=h4bd325d_1
   - numpy=1.22.0=py39h91f2184_1
@@ -81,7 +81,7 @@ dependencies:
   - pyopenssl=21.0.0=pyhd8ed1ab_0
   - pyparsing=3.0.7=pyhd8ed1ab_0
   - pysocks=1.7.1=py39hf3d152e_4
-  - python=3.9.9=h62f1059_0_cpython
+  - python=3.9.10=h85951f9_1_cpython
   - python_abi=3.9=2_cp39
   - pytorch=1.8.0=cuda112py39h716d6ff_1
   - pytorch-gpu=1.8.0=cuda112py39h0bbbad9_1
