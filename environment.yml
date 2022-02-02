@@ -22,6 +22,8 @@ dependencies:
   - click=8.0.3=py39hf3d152e_1
   - colorama=0.4.4=pyh9f0ad1d_0
   - cryptography=36.0.1=py39h95dcef6_0
+  - cudatoolkit=11.6.0=habf752d_10
+  - cudnn=8.2.1.32=h86fa8c9_0
   - dataclasses=0.8=pyhc8e2a94_3
   - ffmpeg=4.4.1=h6987444_0
   - freetype=2.10.4=h0708190_1
@@ -67,9 +69,11 @@ dependencies:
   - libzlib=1.2.11=h36c2ea0_1013
   - llvm-openmp=12.0.1=h4bd325d_1
   - lz4-c=1.9.3=h9c3ff4c_1
+  - magma=2.5.4=h6103c52_2
   - markdown=3.3.6=pyhd8ed1ab_0
   - mkl=2022.0.1=h8d4b97c_803
   - multidict=6.0.2=py39h3811e60_0
+  - nccl=2.11.4.1=h5c60f85_2
   - ncurses=6.3=h9c3ff4c_0
   - nettle=3.6=he412f7d_0
   - ninja=1.10.2=h4bd325d_1
@@ -94,7 +98,8 @@ dependencies:
   - pysocks=1.7.1=py39hf3d152e_4
   - python=3.9.10=h85951f9_2_cpython
   - python_abi=3.9=2_cp39
-  - pytorch=1.10.1=cpu_py39h5e9ed0b_0
+  - pytorch=1.10.1=cuda112py39h4de5995_0
+  - pytorch-gpu=1.10.1=cuda112py39h0bbbad9_0
   - pytorch-lightning=1.5.9=pyhd8ed1ab_0
   - pyu2f=0.1.5=pyhd8ed1ab_0
   - pyyaml=6.0=py39h3811e60_3
@@ -114,7 +119,7 @@ dependencies:
   - tensorboard-plugin-wit=1.8.1=pyhd8ed1ab_0
   - tk=8.6.11=h27826a3_1
   - torchmetrics=0.7.0=pyhd8ed1ab_0
-  - torchvision=0.11.2=cpu_py39h5f8393d_2
+  - torchvision=0.11.2=cuda112py39h14c6492_2
   - tqdm=4.62.3=pyhd8ed1ab_0
   - typing-extensions=4.0.1=hd8ed1ab_0
   - typing_extensions=4.0.1=pyha770c72_0

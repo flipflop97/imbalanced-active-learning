@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import torch
 import pytorch_lightning as pl
 
 import data_utils
@@ -28,6 +29,7 @@ def test_datasets():
 		])
 
 		trainer = pl.Trainer(
+			gpus=list(range(torch.cuda.device_count())),
 			logger=None,
 			enable_checkpointing=False,
 			max_epochs=1

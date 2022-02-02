@@ -102,6 +102,7 @@ def main():
 		patience=args.early_stopping_patience
 	)
 	trainer = pl.Trainer(
+		gpus=list(range(torch.cuda.device_count())),
 		log_every_n_steps=10,
 		min_epochs=args.min_epochs,
 		max_epochs=-1,
