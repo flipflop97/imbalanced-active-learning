@@ -49,42 +49,48 @@ class IALDataModule(pl.LightningDataModule):
 			self.data_train,
 			batch_size=self.hparams.train_batch_size,
 			shuffle=True,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 	def val_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_val,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 	def test_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 	def predict_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 	def labeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_train,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 	def unlabeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers
+			num_workers=self.hparams.dataloader_workers,
+			persistent_workers=True
 		)
 
 
