@@ -1,7 +1,6 @@
-name: al
+name: ial
 channels:
   - conda-forge
-  - defaults
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=1_llvm
@@ -43,8 +42,8 @@ dependencies:
   - lcms2=2.12=hddcbb42_0
   - ld_impl_linux-64=2.36.1=hea4e1c9_2
   - lerc=3.0=h9c3ff4c_0
-  - libblas=3.9.0=12_linux64_mkl
-  - libcblas=3.9.0=12_linux64_mkl
+  - libblas=3.9.0=13_linux64_mkl
+  - libcblas=3.9.0=13_linux64_mkl
   - libdeflate=1.8=h7f98852_0
   - libdrm=2.4.109=h7f98852_0
   - libffi=3.4.2=h7f98852_5
@@ -52,7 +51,7 @@ dependencies:
   - libgfortran-ng=11.2.0=h69a702a_12
   - libgfortran5=11.2.0=h5c6108e_12
   - libiconv=1.16=h516909a_0
-  - liblapack=3.9.0=12_linux64_mkl
+  - liblapack=3.9.0=13_linux64_mkl
   - libnsl=2.0.0=h7f98852_0
   - libpciaccess=0.16=h516909a_0
   - libpng=1.6.37=h21135ba_2
@@ -69,7 +68,7 @@ dependencies:
   - llvm-openmp=12.0.1=h4bd325d_1
   - lz4-c=1.9.3=h9c3ff4c_1
   - markdown=3.3.6=pyhd8ed1ab_0
-  - mkl=2021.4.0=h8d4b97c_729
+  - mkl=2022.0.1=h8d4b97c_803
   - multidict=6.0.2=py39h3811e60_0
   - ncurses=6.3=h9c3ff4c_0
   - nettle=3.6=he412f7d_0
@@ -95,7 +94,7 @@ dependencies:
   - pysocks=1.7.1=py39hf3d152e_4
   - python=3.9.10=h85951f9_2_cpython
   - python_abi=3.9=2_cp39
-  - pytorch=1.10.0=cpu_py39hc70245e_1
+  - pytorch=1.10.1=cpu_py39h5e9ed0b_0
   - pytorch-lightning=1.5.9=pyhd8ed1ab_0
   - pyu2f=0.1.5=pyhd8ed1ab_0
   - pyyaml=6.0=py39h3811e60_3
@@ -115,7 +114,7 @@ dependencies:
   - tensorboard-plugin-wit=1.8.1=pyhd8ed1ab_0
   - tk=8.6.11=h27826a3_1
   - torchmetrics=0.7.0=pyhd8ed1ab_0
-  - torchvision=0.11.2=cpu_py39h5f8393d_3
+  - torchvision=0.11.2=cpu_py39h5f8393d_2
   - tqdm=4.62.3=pyhd8ed1ab_0
   - typing-extensions=4.0.1=hd8ed1ab_0
   - typing_extensions=4.0.1=pyha770c72_0
@@ -140,4 +139,4 @@ dependencies:
   - zipp=3.7.0=pyhd8ed1ab_0
   - zlib=1.2.11=h36c2ea0_1013
   - zstd=1.5.2=ha95c52a_0
-prefix: /home/philip/.local/share/anaconda3/envs/al
+prefix: /home/philip/.local/share/miniforge3/envs/ial
