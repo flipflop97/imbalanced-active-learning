@@ -1,5 +1,6 @@
 import random
 import numpy
+import tqdm
 import torch
 import torchmetrics
 import torchvision
@@ -119,7 +120,7 @@ class IALDataModule(pl.LightningDataModule):
 
 	def label_uncertain(self, amount: int, model: pl.LightningModule):
 		uncertainty_list = []
-		for batch in self.unlabeled_dataloader():
+		for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
 			x, _ = batch
 			y_hat, _ = model(x)
 
@@ -142,7 +143,7 @@ class IALDataModule(pl.LightningDataModule):
 	# Donggeun Yoo, In So Kweon
 	def label_highest_loss(self, amount: int, model: pl.LightningModule):
 		uncertainty_list = []
-		for batch in self.unlabeled_dataloader():
+		for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
 			x, _ = batch
 			_, losses_hat = model(x)
 			uncertainty_list.append(losses_hat)
@@ -160,11 +161,9 @@ class IALDataModule(pl.LightningDataModule):
 
 		batch_size = self.hparams.eval_batch_size
 
-		for i in range(amount):
+		for _ in tqdm.trange(amount, desc='Labeling'):
 			max_min_dist = 0
 			cache_labeled = []
-
-			print(f"Label {i}", end="\r")
 
 			for batch_labeled in self.labeled_dataloader():
 				x_labeled, _ = batch_labeled
@@ -187,8 +186,6 @@ class IALDataModule(pl.LightningDataModule):
 				chosen_index = batch_size * batch_index + cur_index
 
 			self.label_indices([chosen_index])
-
-		print("Done labeling")
 
 
 	def label_data(self, model):
