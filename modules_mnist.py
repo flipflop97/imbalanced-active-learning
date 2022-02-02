@@ -1,4 +1,3 @@
-import torch
 import torchvision
 
 import modules_general

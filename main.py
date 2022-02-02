@@ -109,7 +109,7 @@ def main():
 	)
 	model, datamodule = data_utils.get_modules(args)
 
-	# TODO Think of a more appropriate limit
+	# TODO Make this a hyperparameter
 	for _ in range(10):
 		model.apply(reset_weights)
 
