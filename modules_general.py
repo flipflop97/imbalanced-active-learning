@@ -241,9 +241,7 @@ class IALModel(pl.LightningModule):
 		self.classifier = torch.nn.Linear(layers_fc[-1], 1 if classes == 2 else classes)
 
 		if classes <= 2:
-			# TODO Functions fuck up multi-GPU learning
-			self.loss = lambda pred, target, *args, **kwargs: \
-				torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)
+			self.loss = data_utils.bce_tofloat_loss
 		else:
 			self.loss = torch.nn.functional.cross_entropy
 

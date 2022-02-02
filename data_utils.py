@@ -23,6 +23,10 @@ def loss_loss(
 		return loss.sum()
 
 
+def bce_tofloat_loss(pred, target, *args, **kwargs):
+	return torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)
+
+
 def balance_classes(subset: torch.utils.data.Subset, balance_factor: float):
 	# Divide all indices into classes
 	class_indices = [
