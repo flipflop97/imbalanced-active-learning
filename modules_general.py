@@ -232,7 +232,7 @@ class IALModel(pl.LightningModule):
 		convolutional.append(torch.nn.Flatten(1))
 		self.convolutional = torch.nn.Sequential(*convolutional)
 
-		self.fully_connected = []
+		self.fully_connected = torch.nn.ModuleList()
 		size_prev = layers_conv[-1] * final_size**2
 		for size in layers_fc:
 			self.fully_connected.append(torch.nn.Sequential(torch.nn.Linear(size_prev, size), torch.nn.ReLU()))
@@ -241,6 +241,7 @@ class IALModel(pl.LightningModule):
 		self.classifier = torch.nn.Linear(layers_fc[-1], 1 if classes == 2 else classes)
 
 		if classes <= 2:
+			# TODO Functions fuck up multi-GPU learning
 			self.loss = lambda pred, target, *args, **kwargs: \
 				torch.nn.functional.binary_cross_entropy_with_logits(pred, target.float(), *args, **kwargs)
 		else:
