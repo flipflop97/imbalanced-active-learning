@@ -191,20 +191,20 @@ class IALDataModule(pl.LightningDataModule):
 	def label_data(self, model):
 		with torch.no_grad():
 			if self.hparams.aquisition_method == 'random':
-				self.label_randomly(self.hparams.batch_budget)
+				self.label_randomly(self.hparams.labeling_budget)
 			elif self.hparams.aquisition_method == 'uncertain':
-				self.label_uncertain(self.hparams.batch_budget, model)
+				self.label_uncertain(self.hparams.labeling_budget, model)
 			elif self.hparams.aquisition_method == 'learning-loss':
-				self.label_highest_loss(self.hparams.batch_budget, model)
+				self.label_highest_loss(self.hparams.labeling_budget, model)
 			elif self.hparams.aquisition_method == 'core-set':
-				self.label_core_set(self.hparams.batch_budget, model)
+				self.label_core_set(self.hparams.labeling_budget, model)
 			else:
 				raise ValueError('Given aquisition method is not available')
 
 
 
 class IALModel(pl.LightningModule):
-	def __init__(self, 
+	def __init__(self,
 		image_size: int,
 		image_depth: int,
 		layers_conv: list,
@@ -215,22 +215,17 @@ class IALModel(pl.LightningModule):
 		super().__init__()
 
 		self.save_hyperparameters()
-		
-		# TODO Make these hyperparameters
-		size_learning_loss = 16
-		conv_stride = 3
-		conv_pool = 2
 
 		convolutional = []
 		size_prev = image_depth
 		final_size = image_size
 		for size in layers_conv:
 			convolutional += [
-				torch.nn.Conv2d(size_prev, size, conv_stride),
+				torch.nn.Conv2d(size_prev, size, self.hparams.convolutional_stride),
 				torch.nn.ReLU(),
-				torch.nn.MaxPool2d(conv_pool, conv_pool)
+				torch.nn.MaxPool2d(self.hparams.convolutional_pool, self.hparams.convolutional_pool)
 			]
-			final_size = (final_size - conv_stride + 1) // conv_pool
+			final_size = (final_size - self.hparams.convolutional_stride + 1) // self.hparams.convolutional_pool
 			size_prev = size
 		convolutional.append(torch.nn.Flatten(1))
 		self.convolutional = torch.nn.Sequential(*convolutional)
@@ -252,11 +247,11 @@ class IALModel(pl.LightningModule):
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			self.loss_layers = [
-				torch.nn.Sequential(torch.nn.Linear(size, size_learning_loss), torch.nn.ReLU())
+				torch.nn.Sequential(torch.nn.Linear(size, self.hparams.learning_loss_layer_size), torch.nn.ReLU())
 				for size in layers_fc
 			]
 
-			self.loss_regressor = torch.nn.Linear(size_learning_loss * len(layers_fc), 1)
+			self.loss_regressor = torch.nn.Linear(self.hparams.learning_loss_layer_size * len(layers_fc), 1)
 
 
 	def forward(self, images):

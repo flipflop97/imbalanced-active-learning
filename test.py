@@ -47,7 +47,7 @@ def test_aquisition_methods():
 		args = parse_arguments([
 			'mnist-binary',
 			aquisition_method,
-			'--batch-budget=10'
+			'--labeling-budget=10'
 		])
 
 		model, datamodule = data_utils.get_modules(args)

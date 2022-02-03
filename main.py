@@ -43,6 +43,14 @@ def parse_arguments(*args, **kwargs):
 		'--min-epochs', type=int, default=25,
 		help="Minimum epochs to train before switching to the early stopper"
 	)
+	parser.add_argument(
+		'--convolutional-stride', type=int, default=3,
+		help="Stride used by convolutional layers"
+	)
+	parser.add_argument(
+		'--convolutional-pool', type=int, default=2,
+		help="Max pooling used by convolutional layers"
+	)
 
 	# Active learning related
 	parser.add_argument(
@@ -63,12 +71,20 @@ def parse_arguments(*args, **kwargs):
 		help="The amount of initially labeled datapoints"
 	)
 	parser.add_argument(
-		'--batch-budget', type=int, default=50,
+		'--labeling-budget', type=int, default=50,
 		help="The amount of datapoints to be labeled per aquisition step"
 	)
-	parser.add_argument( # TODO Make this dependant on aquisition method
+	parser.add_argument(
+		'--labeling-steps', type=int, default=50,
+		help="The total amount of aquisition steps"
+	)
+	parser.add_argument(
 		'--learning-loss-factor', type=float, default=0.1,
 		help="Multiplier used on top of the learning rate for the additional learning loss"
+	)
+	parser.add_argument(
+		'--learning-loss-layer-size', type=int, default=16,
+		help="Layer size used by learning loss layers"
 	)
 
 	# Device related
@@ -101,6 +117,7 @@ def main():
 		mode="min",
 		patience=args.early_stopping_patience
 	)
+	early_stopping_callback.on_train_end
 	trainer = pl.Trainer(
 		gpus=list(range(torch.cuda.device_count())),
 		log_every_n_steps=10,
@@ -110,17 +127,16 @@ def main():
 	)
 	model, datamodule = data_utils.get_modules(args)
 
-	# TODO Make this a hyperparameter
-	for _ in range(10):
+	for step in range(args.labeling_steps):
 		model.apply(reset_weights)
 
 		trainer.fit(model, datamodule)
 		trainer.test(model, datamodule)
 
-		# TODO Could this be moved to on_train_end?
 		early_stopping_callback.best_score = torch.tensor(float('inf'))
 
-		datamodule.label_data(model)
+		if step < args.labeling_steps - 1:
+			datamodule.label_data(model)
 
 
 if __name__ == "__main__":
