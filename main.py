@@ -32,7 +32,7 @@ def parse_arguments(*args, **kwargs):
 		help="Percentage of the data to be used for training, the rest will be used for validation"
 	)
 	parser.add_argument(
-		'--learning-rate', type=float, default=5e-4,
+		'--learning-rate', type=float, default=2e-4,
 		help="Multiplier used to tweak model parameters"
 	)
 	parser.add_argument(
@@ -40,7 +40,7 @@ def parse_arguments(*args, **kwargs):
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
-		'--min-epochs', type=int, default=50,
+		'--min-epochs', type=int, default=25,
 		help="Minimum epochs to train before switching to the early stopper"
 	)
 
