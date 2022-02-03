@@ -167,18 +167,23 @@ class IALDataModule(pl.LightningDataModule):
 
 			for batch_labeled in self.labeled_dataloader():
 				x_labeled, _ = batch_labeled
-				cache_labeled.append(model.convolutional(x_labeled))
+				h_labeled = model.convolutional(x_labeled)
+				for layer in model.fully_connected:
+					h_labeled = layer(h_labeled)
+				cache_labeled.append(h_labeled)
 
 			for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
 				x_unlabeled, _ = batch_unlabeled
-				features_unlabeled = model.convolutional(x_unlabeled)
+				h_unlabeled = model.convolutional(x_unlabeled)
+				for layer in model.fully_connected:
+					h_unlabeled = layer(h_unlabeled)
 
-				min_dist = torch.full([len(features_unlabeled)], numpy.Inf)
-				for features_labeled in cache_labeled:
-					uu = features_unlabeled.pow(2).sum(1, keepdim=True).T
-					ll = features_labeled.pow(2).sum(1, keepdim=True)
-					lu = features_labeled @ features_unlabeled.T
-					dist = (uu + ll - 2*lu).sqrt()
+				min_dist = torch.full([len(h_unlabeled)], numpy.Inf)
+				for h_labeled in cache_labeled:
+					uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
+					ll = h_labeled.pow(2).sum(1, keepdim=True)
+					lu = h_labeled @ h_unlabeled.T
+					dist = (uu + ll - 2*lu)#.sqrt()
 					min_dist = torch.min(min_dist, dist.min(0)[0])
 
 				cur_index = (min_dist - max_min_dist).argmax()
