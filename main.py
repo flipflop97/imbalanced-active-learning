@@ -103,7 +103,7 @@ def parse_arguments(*args, **kwargs):
 		help="Multiplier used to tweak model parameters"
 	)
 	parser.add_argument(
-		'--eval-batch-size', type=int, default=1024,
+		'--eval-batch-size', type=int, default=8192,
 		help="Batch size used for evaluating the model"
 	)
 	parser.add_argument(
