@@ -41,11 +41,17 @@ def test_datasets():
 
 
 def test_aquisition_methods():
-	for aquisition_method in ['random', 'uncertain', 'learning-loss', 'core-set']:
+	for aquisition_method in [
+			'random',
+			'uncertainty',
+			'uncertainty-balanced-greedy',
+			'learning-loss',
+			'core-set-greedy'
+		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 
 		args = parse_arguments([
-			'mnist-binary',
+			'mnist',
 			aquisition_method,
 			'--labeling-budget=10'
 		])

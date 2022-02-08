@@ -55,7 +55,13 @@ def parse_arguments(*args, **kwargs):
 	# Active learning related
 	parser.add_argument(
 		'aquisition_method', type=str,
-		choices=['random', 'uncertain', 'learning-loss', 'core-set'],
+		choices=[
+			'random',
+			'uncertainty',
+			'uncertainty-balanced', 'uncertainty-balanced-greedy',
+			'learning-loss',
+			'core-set', 'core-set-greedy'
+		],
 		help="The unlabeled data aquisition method to use"
 	)
 	parser.add_argument(
@@ -75,7 +81,7 @@ def parse_arguments(*args, **kwargs):
 		help="The amount of datapoints to be labeled per aquisition step"
 	)
 	parser.add_argument(
-		'--labeling-steps', type=int, default=50,
+		'--labeling-steps', type=int, default=10,
 		help="The total amount of aquisition steps"
 	)
 	parser.add_argument(
