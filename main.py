@@ -92,6 +92,10 @@ def parse_arguments(*args, **kwargs):
 		'--learning-loss-layer-size', type=int, default=16,
 		help="Layer size used by learning loss layers"
 	)
+	parser.add_argument(
+		'--class-balance-factor', type=float, default=1,
+		help="Multiplier used for adjusting the class-balancing effect"
+	)
 
 	# Device related
 	parser.add_argument(

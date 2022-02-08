@@ -106,10 +106,10 @@ class IALDataModule(pl.LightningDataModule):
 
 	def label_indices(self, indices: list):
 		self.data_train.indices += indices
-		self.data_unlabeled.indices = [index
+		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
 			if index not in indices
-		]
+		])))
 
 
 	def label_each_class(self, amount: int = 1):
@@ -153,46 +153,10 @@ class IALDataModule(pl.LightningDataModule):
 	def label_uncertain_balanced(self, amount: int, model: pl.LightningModule):
 		raise NotImplementedError
 
-	# def label_uncertain_balanced_greedy(self, amount: int, model: pl.LightningModule):
-	# 	# Greedy: Essentially same as uncertain except:
-	# 	#   - Add to uncertainty values: lambda * (max(0, labeled/classes - labeled_class) - expected_classes)
-	# 	#   - Label points one a a time
-		
-	# 	# TODO Make this a hyperparameter
-	# 	balance_factor = 1
-
-	# 	uncertainty_list = []
-	# 	for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
-	# 		images, _ = batch
-	# 		output, _ = model(images)
-
-	# 		try:
-	# 			# Multiclass, softmax
-	# 			preds = torch.nn.functional.softmax(output, 1)
-	# 		except IndexError:
-	# 			# Binary, sigmoid
-	# 			preds_binary = torch.sigmoid(output)
-	# 			preds = torch.stack([preds_binary, 1 - preds_binary], 1)
-			
-	# 		uncertainty_score = -(preds*preds.log()).sum(1)
-	# 		balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
-	# 		balance_penalty = balance_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
-
-	# 		uncertainty_list.append(uncertainty_score - balance_penalty)
-
-	# 	uncertainty = torch.cat(uncertainty_list)
-	# 	_, top_indices = uncertainty.topk(amount)
-	# 	chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
-	# 	self.label_indices(chosen_indices)
-
-
 	def label_uncertain_balanced_greedy(self, amount: int, model: pl.LightningModule):
 		# Greedy: Essentially same as uncertain except:
 		#   - Add to uncertainty values: lambda * (max(0, labeled/classes - labeled_class) - expected_classes)
-		#   - Label points one a a time
-		
-		# TODO Make this a hyperparameter
-		balance_factor = 1
+		#   - Label points one at a time
 
 		batch_size = self.hparams.eval_batch_size
 
@@ -212,7 +176,7 @@ class IALDataModule(pl.LightningDataModule):
 				
 				uncertainty_score = -(preds*preds.log()).sum(1)
 				balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
-				balance_penalty = balance_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
+				balance_penalty = self.hparams.class_balance_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
 
 				cur_uncertainty, cur_index = torch.max(uncertainty_score - balance_penalty, axis=0)
 				if cur_uncertainty > max_uncertainty:
@@ -307,7 +271,6 @@ class IALDataModule(pl.LightningDataModule):
 		max_class_len = max(len(cls) for cls in self.data_train.dataset.classes)
 		for num, cls in enumerate(self.data_train.dataset.classes):
 			print(f"{cls:{max_class_len}}  {cb_before[num]:2.0f}% -> {cb_after[num]:2.0f}% ({cb_after[num] - cb_before[num]:+2.0f}%)")
-		print()
 
 
 
