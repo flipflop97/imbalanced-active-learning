@@ -287,6 +287,8 @@ class IALModel(pl.LightningModule):
 
 		self.save_hyperparameters()
 
+		self.example_input_array = torch.zeros([self.hparams.train_batch_size, image_depth, image_size, image_size])
+
 		convolutional = []
 		size_prev = image_depth
 		final_size = image_size
@@ -326,7 +328,7 @@ class IALModel(pl.LightningModule):
 
 
 	def forward(self, images):
-		pred_loss = None
+		pred_loss = torch.empty(0)
 		hidden = self.convolutional(images)
 
 		if self.hparams.aquisition_method == 'learning-loss':

@@ -122,9 +122,14 @@ def reset_weights(layer):
 def main():
 	args = parse_arguments()
 
+	logger = pl.loggers.TensorBoardLogger(
+		'lightning_logs',
+		name=f"{args.dataset}_{args.aquisition_method}_{args.class_balance_factor}",
+		log_graph=True
+	)
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
-		monitor="validation classification loss",
-		mode="min",
+		monitor='validation classification loss',
+		mode='min',
 		patience=args.early_stopping_patience
 	)
 	early_stopping_callback.on_train_end
@@ -133,6 +138,7 @@ def main():
 		log_every_n_steps=10,
 		min_epochs=args.min_epochs,
 		max_epochs=-1,
+		logger=logger,
 		callbacks=[early_stopping_callback]
 	)
 	model, datamodule = data_utils.get_modules(args)
