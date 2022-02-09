@@ -97,20 +97,15 @@ class IALDataModule(pl.LightningDataModule):
 
 	@property
 	def class_balance(self):
-		balance = [len([index
+		return torch.tensor([len([index
 				for index in self.data_train.indices
 				if self.data_train.dataset.targets[index] == c
 			]) for c, _ in enumerate(self.data_train.dataset.classes)
-		]
-
-		try:
-			return torch.tensor(balance, device=self.trainer.model.device)
-		except AttributeError:
-			return torch.tensor(balance)
+		])
 
 
 	def label_indices(self, indices: list):
-		self.data_train.indices += indices
+		self.data_train.indices = sorted(list(set(self.data_train.indices + indices)))
 		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
 			if index not in indices
@@ -322,10 +317,10 @@ class IALModel(pl.LightningModule):
 		self.accuracy = torchmetrics.Accuracy()
 
 		if self.hparams.aquisition_method == 'learning-loss':
-			self.loss_layers = [
+			self.loss_layers = torch.nn.ModuleList([
 				torch.nn.Sequential(torch.nn.Linear(size, self.hparams.learning_loss_layer_size), torch.nn.ReLU())
 				for size in layers_fc
-			]
+			])
 
 			self.loss_regressor = torch.nn.Linear(self.hparams.learning_loss_layer_size * len(layers_fc), 1)
 
