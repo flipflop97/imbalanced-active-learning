@@ -61,10 +61,6 @@ def test_aquisition_methods():
 
 		datamodule.label_data(model)
 
-		assert \
-			len(datamodule.data_train.indices) == len(set(datamodule.data_train.indices)), \
-			'Duplicate labeled data points detected'
-
 
 if __name__ == "__main__":
 	main()

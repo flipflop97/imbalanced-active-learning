@@ -97,11 +97,16 @@ class IALDataModule(pl.LightningDataModule):
 
 	@property
 	def class_balance(self):
-		return torch.tensor([len([index
+		balance = [len([index
 				for index in self.data_train.indices
 				if self.data_train.dataset.targets[index] == c
 			]) for c, _ in enumerate(self.data_train.dataset.classes)
-		])
+		]
+
+		try:
+			return torch.tensor(balance, device=self.trainer.model.device)
+		except AttributeError:
+			return torch.tensor(balance)
 
 
 	def label_indices(self, indices: list):
