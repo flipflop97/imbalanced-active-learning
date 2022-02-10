@@ -39,7 +39,7 @@ class IALDataModule(pl.LightningDataModule):
 
 			# Label 1 label of each class randomly, then label the rest randomly independant of classes
 			self.label_each_class()
-			self.label_randomly(self.hparams.initial_labels - len(data_full.classes))
+			self.label_randomly(self.hparams.initial_labels - len(data_full.classes), None)
 
 		if stage == "test" or stage is None:
 			self.data_test = self.get_data_test()
@@ -122,7 +122,7 @@ class IALDataModule(pl.LightningDataModule):
 		], []))
 
 
-	def label_randomly(self, amount: int):
+	def label_randomly(self, amount: int, model: pl.LightningModule):
 		chosen_indices = random.sample(self.data_unlabeled.indices, amount)
 		self.label_indices(chosen_indices)
 
@@ -136,17 +136,52 @@ class IALDataModule(pl.LightningDataModule):
 			try:
 				# Multiclass, softmax
 				preds = torch.nn.functional.softmax(output, 1)
-				uncertainty_list.append(-(preds*preds.log()).sum(1))
 			except IndexError:
 				# Binary, sigmoid
-				preds = torch.sigmoid(output)
-				uncertainty_list.append(-preds*preds.log() - (1-preds)*(1-preds).log())
+				preds_binary = torch.sigmoid(output)
+				preds = torch.stack([preds_binary, 1 - preds_binary], 1)
+			
+			# Prediction entropy score
+			uncertainty_list.append(-(preds*preds.log()).sum(1))
 
 		uncertainty = torch.cat(uncertainty_list)
 		_, top_indices = uncertainty.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 	
+
+	# Active Learning for Skewed Data Sets
+	# Abbas Kazerouni et al
+	def label_hal_r(self, amount: int, model: pl.LightningModule):
+		# TODO make p a hyperparameter
+		dist = sum(random.getrandbits(1) for _ in range(amount))
+
+		uncertainty_list = []
+		for batch in self.unlabeled_dataloader():
+			images, _ = batch
+			output, _ = model(images)
+
+			try:
+				# Multiclass, softmax
+				preds = torch.nn.functional.softmax(output, 1)
+			except IndexError:
+				# Binary, sigmoid
+				preds_binary = torch.sigmoid(output)
+				preds = torch.stack([preds_binary, 1 - preds_binary], 1)
+			
+			# Prediction margin score
+			uncertainty_list.append(preds.topk(2, dim=1)[0].diff(dim=1).abs().squeeze(1))
+
+		uncertainty = torch.cat(uncertainty_list)
+		_, top_indices = uncertainty.topk(dist)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
+		self.label_randomly(amount - dist, model)
+
+	def label_hal_g(self, amount: int, model: pl.LightningModule):
+		raise NotImplementedError
+
 
 	# Class-Balanced Active Learning for Image Classification
 	# Javad Zolfaghari Bengar, Joost van de Weijer, Laura Lopez Fuentes, Bogdan Raducanu
@@ -244,26 +279,20 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	def label_data(self, model):
+		aquisition_methods = {
+			'random': self.label_randomly,
+			'uncertainty': self.label_uncertain,
+			'uncertainty-balanced': self.label_uncertain_balanced,
+			'uncertainty-balanced-greedy': self.label_uncertain_balanced_greedy,
+			'learning-loss': self.label_highest_loss,
+			'core-set': self.label_core_set,
+			'core-set-greedy': self.label_core_set_greedy,
+			'hal-r': self.label_hal_r
+		}
+
 		with torch.no_grad():
 			cb_before = self.class_balance / len(self.data_train) * 100
-
-			if self.hparams.aquisition_method == 'random':
-				self.label_randomly(self.hparams.labeling_budget)
-			elif self.hparams.aquisition_method == 'uncertainty':
-				self.label_uncertain(self.hparams.labeling_budget, model)
-			elif self.hparams.aquisition_method == 'uncertainty-balanced':
-				self.label_uncertain_balanced(self.hparams.labeling_budget, model)
-			elif self.hparams.aquisition_method == 'uncertainty-balanced-greedy':
-				self.label_uncertain_balanced_greedy(self.hparams.labeling_budget, model)
-			elif self.hparams.aquisition_method == 'learning-loss':
-				self.label_highest_loss(self.hparams.labeling_budget, model)
-			elif self.hparams.aquisition_method == 'core-set':
-				self.label_core_set(self.hparams.labeling_budget, model)
-			elif self.hparams.aquisition_method == 'core-set-greedy':
-				self.label_core_set_greedy(self.hparams.labeling_budget, model)
-			else:
-				raise ValueError('Given aquisition method is not available')
-
+			aquisition_methods[self.hparams.aquisition_method](self.hparams.labeling_budget, model)
 			cb_after = self.class_balance / len(self.data_train) * 100
 
 		print('Data labeled, class balance:')

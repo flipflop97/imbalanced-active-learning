@@ -48,7 +48,8 @@ def test_aquisition_methods():
 			'uncertainty',
 			'uncertainty-balanced-greedy',
 			'learning-loss',
-			'core-set-greedy'
+			'core-set-greedy',
+			'hal-r'
 		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 

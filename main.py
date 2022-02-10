@@ -60,7 +60,8 @@ def parse_arguments(*args, **kwargs):
 			'uncertainty',
 			'uncertainty-balanced', 'uncertainty-balanced-greedy',
 			'learning-loss',
-			'core-set', 'core-set-greedy'
+			'core-set', 'core-set-greedy',
+			'hal-r'
 		],
 		help="The unlabeled data aquisition method to use"
 	)
