@@ -176,7 +176,7 @@ class IALDataModule(pl.LightningDataModule):
 				
 				uncertainty_score = -(preds*preds.log()).sum(1)
 				balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
-				balance_penalty = self.hparams.class_balance_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
+				balance_penalty = self.hparams.class_balancing_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
 
 				cur_uncertainty, cur_index = torch.max(uncertainty_score - balance_penalty, axis=0)
 				if cur_uncertainty > max_uncertainty:

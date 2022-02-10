@@ -93,7 +93,7 @@ def parse_arguments(*args, **kwargs):
 		help="Layer size used by learning loss layers"
 	)
 	parser.add_argument(
-		'--class-balance-factor', type=float, default=1,
+		'--class-balancing-factor', type=float, default=1,
 		help="Multiplier used for adjusting the class-balancing effect"
 	)
 
@@ -121,10 +121,11 @@ def reset_weights(layer):
 
 def main():
 	args = parse_arguments()
+	use_gpu = torch.cuda.is_available()
 
 	logger = pl.loggers.TensorBoardLogger(
 		'lightning_logs',
-		name=f"{args.dataset}_{args.aquisition_method}_{args.class_balance_factor}",
+		name=f"{args.dataset}_{args.aquisition_method}_{args.class_balance}",
 		log_graph=True
 	)
 	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
@@ -134,7 +135,8 @@ def main():
 	)
 	early_stopping_callback.on_train_end
 	trainer = pl.Trainer(
-		gpus=list(range(torch.cuda.device_count())),
+		gpus=int(use_gpu),
+		auto_select_gpus=use_gpu,
 		log_every_n_steps=10,
 		min_epochs=args.min_epochs,
 		max_epochs=-1,

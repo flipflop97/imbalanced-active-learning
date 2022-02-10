@@ -27,9 +27,11 @@ def test_datasets():
 			dataset,
 			'random'
 		])
+		use_gpu = torch.cuda.is_available()
 
 		trainer = pl.Trainer(
-			gpus=list(range(torch.cuda.device_count())),
+			gpus=int(use_gpu),
+			auto_select_gpus=use_gpu,
 			logger=None,
 			enable_checkpointing=False,
 			max_epochs=1
