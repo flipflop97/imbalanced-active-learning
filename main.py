@@ -121,41 +121,58 @@ def reset_weights(layer):
 
 
 def main():
-	args = parse_arguments()
-	use_gpu = torch.cuda.is_available()
+	try:
+		args = parse_arguments()
+		use_gpu = torch.cuda.is_available()
 
-	logger = pl.loggers.TensorBoardLogger(
-		'lightning_logs',
-		name=f"{args.dataset}_{args.aquisition_method}_{args.class_balance}",
-		log_graph=True
-	)
-	early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
-		monitor='validation classification loss',
-		mode='min',
-		patience=args.early_stopping_patience
-	)
-	early_stopping_callback.on_train_end
-	trainer = pl.Trainer(
-		gpus=int(use_gpu),
-		auto_select_gpus=use_gpu,
-		log_every_n_steps=10,
-		min_epochs=args.min_epochs,
-		max_epochs=-1,
-		logger=logger,
-		callbacks=[early_stopping_callback]
-	)
-	model, datamodule = data_utils.get_modules(args)
+		logger = pl.loggers.WandbLogger(name=f"{args.dataset} {args.aquisition_method} {args.class_balance}")
+		early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
+			monitor='running/classification/validation/loss',
+			mode='min',
+			patience=args.early_stopping_patience
+		)
+		early_stopping_callback.on_train_end
+		trainer = pl.Trainer(
+			gpus=int(use_gpu),
+			auto_select_gpus=use_gpu,
+			log_every_n_steps=10,
+			min_epochs=args.min_epochs,
+			max_epochs=-1,
+			logger=logger,
+			callbacks=[early_stopping_callback]
+		)
+		model, datamodule = data_utils.get_modules(args)
 
-	for step in range(args.labeling_steps):
-		model.apply(reset_weights)
-
-		trainer.fit(model, datamodule)
+		trainer.validate(model, datamodule)
+		if trainer.interrupted:
+			raise KeyboardInterrupt
 		trainer.test(model, datamodule)
+		if trainer.interrupted:
+			raise KeyboardInterrupt
 
-		early_stopping_callback.best_score = torch.tensor(float('inf'))
+		for step in range(args.labeling_steps):
+			model.apply(reset_weights)
+			ial_logs = dict()
 
-		if step < args.labeling_steps - 1:
-			datamodule.label_data(model)
+			trainer.fit(model, datamodule)
+			if trainer.interrupted:
+				raise KeyboardInterrupt
+			ial_logs.update({label.replace("running/", "final/"): value for label, value in trainer.logged_metrics.items()})
+
+			trainer.test(model, datamodule)
+			if trainer.interrupted:
+				raise KeyboardInterrupt
+			ial_logs.update({label.replace("running/", "final/"): value for label, value in trainer.logged_metrics.items()})
+
+			logger.log_metrics(ial_logs)
+
+			early_stopping_callback.best_score = torch.tensor(float('inf'))
+
+			if step < args.labeling_steps - 1:
+				datamodule.label_data(model)
+
+	except KeyboardInterrupt:
+		pass
 
 
 if __name__ == "__main__":

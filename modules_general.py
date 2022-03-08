@@ -381,12 +381,12 @@ class IALModel(pl.LightningModule):
 		labels_hat, losses_hat = self(images)
 
 		loss = self.loss(labels_hat, labels)
-		self.log("training classification loss", loss)
+		self.log("running/classification/training/loss", loss, on_step=False, on_epoch=True)
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			losses = self.loss(labels_hat, labels, reduction='none')
 			loss_loss = data_utils.loss_loss(losses_hat, losses)
-			self.log("training loss loss", loss_loss)
+			self.log("running/learning-loss/training/loss", loss_loss, on_step=False, on_epoch=True)
 
 			loss += self.hparams.learning_loss_factor * loss_loss
 
@@ -405,22 +405,22 @@ class IALModel(pl.LightningModule):
 		labels_hat, losses_hat = self(images)
 
 		loss = self.loss(labels_hat, labels)
-		self.log("validation classification loss", loss)
+		self.log("running/classification/validation/loss", loss)
 
 		accuracy = self.accuracy(labels_hat, labels)
-		self.log("validation classification accuracy", accuracy)
+		self.log("running/classification/validation/accuracy", accuracy)
 
 		num_labeled = float(len(self.trainer.datamodule.data_train.indices))
-		self.log("labeled data count", num_labeled)
+		self.log("running/labeled-data/count", num_labeled)
 
 		class_balance = self.trainer.datamodule.class_balance / len(self.trainer.datamodule.data_train)
 		entropy_labeled = -(class_balance * class_balance.log()).sum()
-		self.log("labeled data entropy", entropy_labeled)
+		self.log("running/labeled-data/entropy", entropy_labeled)
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			losses = self.loss(labels_hat, labels, reduction='none')
 			loss_loss = data_utils.loss_loss(losses_hat, losses)
-			self.log("validation loss loss", loss_loss)
+			self.log("running/learning-loss/validation/loss", loss_loss)
 
 		return loss
 
@@ -430,15 +430,15 @@ class IALModel(pl.LightningModule):
 		labels_hat, losses_hat = self(images)
 
 		loss = self.loss(labels_hat, labels)
-		self.log("test classification loss", loss)
+		self.log("running/classification/test/loss", loss)
 
 		accuracy = self.accuracy(labels_hat, labels)
-		self.log("test classification accuracy", accuracy)
+		self.log("running/classification/test/accuracy", accuracy)
 
 		if self.hparams.aquisition_method == 'learning-loss':
 			losses = self.loss(labels_hat, labels, reduction='none')
 			loss_loss = data_utils.loss_loss(losses_hat, losses)
-			self.log("test loss loss", loss_loss)
+			self.log("running/learning-loss/test/loss", loss_loss)
 
 		return loss
 

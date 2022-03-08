@@ -15,8 +15,11 @@ TEXT_UNDERLINED = '\033[4m'
 
 
 def main():
-	test_datasets()
-	test_aquisition_methods()
+	try:
+		test_datasets()
+		test_aquisition_methods()
+	except KeyboardInterrupt:
+		pass
 
 
 def test_datasets():
@@ -39,7 +42,12 @@ def test_datasets():
 		model, datamodule = data_utils.get_modules(args)
 
 		trainer.fit(model, datamodule)
+		if trainer.interrupted:
+			raise KeyboardInterrupt
+
 		trainer.test(model, datamodule)
+		if trainer.interrupted:
+			raise KeyboardInterrupt
 
 
 def test_aquisition_methods():
