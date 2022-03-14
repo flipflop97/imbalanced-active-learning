@@ -134,7 +134,7 @@ class IALDataModule(pl.LightningDataModule):
 
 		elif uncertainty_method == 'margin':
 			def uncertainty_method_fn(preds):
-				return preds.topk(2, dim=1)[0].diff(dim=1).abs().squeeze(1)
+				return 1 - preds.topk(2, dim=1)[0].diff(dim=1).abs().squeeze(1)
 
 		elif uncertainty_method == 'least-confident':
 			def uncertainty_method_fn(preds):
