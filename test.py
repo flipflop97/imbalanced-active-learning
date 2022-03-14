@@ -53,11 +53,11 @@ def test_datasets():
 def test_aquisition_methods():
 	for aquisition_method in [
 			'random',
-			'uncertainty',
-			'uncertainty-balanced-greedy',
+			'least-confident', 'margin', 'entropy',
 			'learning-loss',
-			'core-set-greedy',
-			'hal-r'
+			'k-center-greedy',
+			'class-balanced-greedy',
+			'hal-r',
 		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 

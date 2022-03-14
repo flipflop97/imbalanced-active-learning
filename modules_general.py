@@ -127,7 +127,22 @@ class IALDataModule(pl.LightningDataModule):
 		self.label_indices(chosen_indices)
 
 
-	def label_uncertain(self, amount: int, model: pl.LightningModule):
+	def label_uncertain(self, amount: int, model: pl.LightningModule, uncertainty_method: str):
+		if uncertainty_method == 'entropy':
+			def uncertainty_method_fn(preds):
+				return -(preds*preds.log()).sum(1)
+
+		elif uncertainty_method == 'margin':
+			def uncertainty_method_fn(preds):
+				return preds.topk(2, dim=1)[0].diff(dim=1).abs().squeeze(1)
+
+		elif uncertainty_method == 'least-confident':
+			def uncertainty_method_fn(preds):
+				return 1 - preds.max(1)[0]
+
+		else:
+			raise ValueError(f"{uncertainty_method} is no valid uncertainty method")
+
 		uncertainty_list = []
 		for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
 			images, _ = batch
@@ -140,15 +155,23 @@ class IALDataModule(pl.LightningDataModule):
 				# Binary, sigmoid
 				preds_binary = torch.sigmoid(output)
 				preds = torch.stack([preds_binary, 1 - preds_binary], 1)
-			
-			# Prediction entropy score
-			uncertainty_list.append(-(preds*preds.log()).sum(1))
+
+			uncertainty_list.append(uncertainty_method_fn(preds))
 
 		uncertainty = torch.cat(uncertainty_list)
 		_, top_indices = uncertainty.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 	
+	def label_entropy(self, amount: int, model: pl.LightningModule):
+		self.label_uncertain(amount, model, 'entropy')
+
+	def label_margin(self, amount: int, model: pl.LightningModule):
+		self.label_uncertain(amount, model, 'margin')
+
+	def label_least_confident(self, amount: int, model: pl.LightningModule):
+		self.label_uncertain(amount, model, 'least-confident')
+
 
 	# Active Learning for Skewed Data Sets
 	# Abbas Kazerouni et al
@@ -156,27 +179,7 @@ class IALDataModule(pl.LightningDataModule):
 		# TODO make p a hyperparameter
 		dist = sum(random.getrandbits(1) for _ in range(amount))
 
-		uncertainty_list = []
-		for batch in self.unlabeled_dataloader():
-			images, _ = batch
-			output, _ = model(images)
-
-			try:
-				# Multiclass, softmax
-				preds = torch.nn.functional.softmax(output, 1)
-			except IndexError:
-				# Binary, sigmoid
-				preds_binary = torch.sigmoid(output)
-				preds = torch.stack([preds_binary, 1 - preds_binary], 1)
-			
-			# Prediction margin score
-			uncertainty_list.append(preds.topk(2, dim=1)[0].diff(dim=1).abs().squeeze(1))
-
-		uncertainty = torch.cat(uncertainty_list)
-		_, top_indices = uncertainty.topk(dist)
-		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
-		self.label_indices(chosen_indices)
-
+		self.label_margin(dist, model)
 		self.label_randomly(amount - dist, model)
 
 	def label_hal_g(self, amount: int, model: pl.LightningModule):
@@ -185,10 +188,10 @@ class IALDataModule(pl.LightningDataModule):
 
 	# Class-Balanced Active Learning for Image Classification
 	# Javad Zolfaghari Bengar, Joost van de Weijer, Laura Lopez Fuentes, Bogdan Raducanu
-	def label_uncertain_balanced(self, amount: int, model: pl.LightningModule):
+	def label_class_balanced(self, amount: int, model: pl.LightningModule):
 		raise NotImplementedError
 
-	def label_uncertain_balanced_greedy(self, amount: int, model: pl.LightningModule):
+	def label_class_balanced_greedy(self, amount: int, model: pl.LightningModule):
 		# Greedy: Essentially same as uncertain except:
 		#   - Add to uncertainty values: lambda * (max(0, labeled/classes - labeled_class) - expected_classes)
 		#   - Label points one at a time
@@ -238,10 +241,10 @@ class IALDataModule(pl.LightningDataModule):
 
 	# Active Learning for Convolutional Neural Networks: A Core-Set Approach
 	# Ozan Sener, Silvio Savarese
-	def label_core_set(self, amount: int, model: pl.LightningModule):
+	def label_k_center(self, amount: int, model: pl.LightningModule):
 		raise NotImplementedError
 
-	def label_core_set_greedy(self, amount: int, model: pl.LightningModule):
+	def label_k_center_greedy(self, amount: int, model: pl.LightningModule):
 		# Each time, get the unlabeled data point with the largest minimum distance to a labeled data point
 
 		batch_size = self.hparams.eval_batch_size
@@ -281,13 +284,15 @@ class IALDataModule(pl.LightningDataModule):
 	def label_data(self, model):
 		aquisition_methods = {
 			'random': self.label_randomly,
-			'uncertainty': self.label_uncertain,
-			'uncertainty-balanced': self.label_uncertain_balanced,
-			'uncertainty-balanced-greedy': self.label_uncertain_balanced_greedy,
+			'least-confident': self.label_least_confident,
+			'margin': self.label_margin,
+			'entropy': self.label_entropy,
 			'learning-loss': self.label_highest_loss,
-			'core-set': self.label_core_set,
-			'core-set-greedy': self.label_core_set_greedy,
-			'hal-r': self.label_hal_r
+			'k-center': self.label_k_center,
+			'k-center-greedy': self.label_k_center_greedy,
+			'class-balanced': self.label_class_balanced,
+			'class-balanced-greedy': self.label_class_balanced_greedy,
+			'hal-r': self.label_hal_r,
 		}
 
 		with torch.no_grad():

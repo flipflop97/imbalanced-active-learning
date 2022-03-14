@@ -57,11 +57,11 @@ def parse_arguments(*args, **kwargs):
 		'aquisition_method', type=str,
 		choices=[
 			'random',
-			'uncertainty',
-			'uncertainty-balanced', 'uncertainty-balanced-greedy',
+			'least-confident', 'margin', 'entropy',
 			'learning-loss',
-			'core-set', 'core-set-greedy',
-			'hal-r'
+			'k-center-greedy',
+			'class-balanced-greedy',
+			'hal-r',
 		],
 		help="The unlabeled data aquisition method to use"
 	)
