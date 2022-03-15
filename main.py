@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import collections
 import argparse
 import torch
 import pytorch_lightning as pl
@@ -150,6 +151,7 @@ def main():
 		if trainer.interrupted:
 			raise KeyboardInterrupt
 
+		auc_logs = collections.Counter()
 		for step in range(args.labeling_steps):
 			model.apply(reset_weights)
 			ial_logs = dict()
@@ -165,11 +167,15 @@ def main():
 			ial_logs.update({label.replace("running/", "final/"): value for label, value in trainer.logged_metrics.items()})
 
 			logger.log_metrics(ial_logs)
+			auc_logs += ial_logs
 
 			early_stopping_callback.best_score = torch.tensor(float('inf'))
 
 			if step < args.labeling_steps - 1:
 				datamodule.label_data(model)
+
+		auc_logs = {key.replace("final/", "auc/"): val for key, val in auc_logs.items()}
+		logger.log_metrics(auc_logs)
 
 	except KeyboardInterrupt:
 		pass

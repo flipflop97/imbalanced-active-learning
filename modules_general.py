@@ -162,7 +162,7 @@ class IALDataModule(pl.LightningDataModule):
 		_, top_indices = uncertainty.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
-	
+
 	def label_entropy(self, amount: int, model: pl.LightningModule):
 		self.label_uncertain(amount, model, 'entropy')
 
@@ -211,7 +211,7 @@ class IALDataModule(pl.LightningDataModule):
 					# Binary, sigmoid
 					preds_binary = torch.sigmoid(output)
 					preds = torch.stack([preds_binary, 1 - preds_binary], 1)
-				
+
 				uncertainty_score = -(preds*preds.log()).sum(1)
 				balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
 				balance_penalty = self.hparams.class_balancing_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
