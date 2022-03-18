@@ -62,7 +62,7 @@ def parse_arguments(*args, **kwargs):
 			'learning-loss',
 			'k-center-greedy',
 			'class-balanced-greedy',
-			'hal-r',
+			'hal-r', 'hal-g',
 		],
 		help="The unlabeled data aquisition method to use"
 	)

@@ -183,7 +183,45 @@ class IALDataModule(pl.LightningDataModule):
 		self.label_randomly(amount - dist, model)
 
 	def label_hal_g(self, amount: int, model: pl.LightningModule):
-		raise NotImplementedError
+		# TODO make p a hyperparameter
+		dist = sum(random.getrandbits(1) for _ in range(amount))
+
+		self.label_margin(dist, model)
+		
+		# TODO make delta a hyperparameter
+		delta = 10
+		batch_size = self.hparams.eval_batch_size
+		for _ in tqdm.trange(amount - dist, desc='Labeling'):
+			min_sum_dist = 0
+			cache_labeled = []
+
+			for batch_labeled in self.labeled_dataloader():
+				x_labeled, _ = batch_labeled
+				h_labeled = model.convolutional(x_labeled)
+				for layer in model.fully_connected:
+					h_labeled = layer(h_labeled)
+				cache_labeled.append(h_labeled)
+
+			for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
+				x_unlabeled, _ = batch_unlabeled
+				h_unlabeled = model.convolutional(x_unlabeled)
+				for layer in model.fully_connected:
+					h_unlabeled = layer(h_unlabeled)
+
+				sum_dist = torch.full([len(h_unlabeled)], numpy.Inf)
+				for h_labeled in cache_labeled:
+					uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
+					ll = h_labeled.pow(2).sum(1, keepdim=True)
+					lu = h_labeled @ h_unlabeled.T
+					dist = (uu + ll - 2*lu).sqrt()
+					dist_gauss = torch.exp(- dist / delta)
+					sum_dist = sum_dist + dist_gauss.sum(0)
+
+				cur_index = (sum_dist - min_sum_dist).argmin()
+				min_sum_dist = sum_dist[cur_index]
+				chosen_index = self.data_unlabeled.indices[batch_size * batch_index + cur_index]
+
+			self.label_indices([chosen_index])
 
 
 	# Class-Balanced Active Learning for Image Classification
@@ -293,6 +331,7 @@ class IALDataModule(pl.LightningDataModule):
 			'class-balanced': self.label_class_balanced,
 			'class-balanced-greedy': self.label_class_balanced_greedy,
 			'hal-r': self.label_hal_r,
+			'hal-g': self.label_hal_g,
 		}
 
 		with torch.no_grad():

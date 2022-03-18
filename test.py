@@ -57,7 +57,7 @@ def test_aquisition_methods():
 			'learning-loss',
 			'k-center-greedy',
 			'class-balanced-greedy',
-			'hal-r',
+			'hal-r', 'hal-g',
 		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 
