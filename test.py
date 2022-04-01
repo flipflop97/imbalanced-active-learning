@@ -58,6 +58,7 @@ def test_aquisition_methods():
 			'k-center-greedy',
 			'class-balanced-greedy',
 			'hal-r', 'hal-g',
+			'influence',
 		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 

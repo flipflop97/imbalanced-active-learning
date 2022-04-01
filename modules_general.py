@@ -144,24 +144,25 @@ class IALDataModule(pl.LightningDataModule):
 			raise ValueError(f"{uncertainty_method} is no valid uncertainty method")
 
 		uncertainty_list = []
-		for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
-			images, _ = batch
-			output, _ = model(images)
+		with torch.no_grad():
+			for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
+				images, _ = batch
+				output, _ = model(images)
 
-			try:
-				# Multiclass, softmax
-				preds = torch.nn.functional.softmax(output, 1)
-			except IndexError:
-				# Binary, sigmoid
-				preds_binary = torch.sigmoid(output)
-				preds = torch.stack([preds_binary, 1 - preds_binary], 1)
+				try:
+					# Multiclass, softmax
+					preds = torch.nn.functional.softmax(output, 1)
+				except IndexError:
+					# Binary, sigmoid
+					preds_binary = torch.sigmoid(output)
+					preds = torch.stack([preds_binary, 1 - preds_binary], 1)
 
-			uncertainty_list.append(uncertainty_method_fn(preds))
+				uncertainty_list.append(uncertainty_method_fn(preds))
 
-		uncertainty = torch.cat(uncertainty_list)
-		_, top_indices = uncertainty.topk(amount)
-		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
-		self.label_indices(chosen_indices)
+			uncertainty = torch.cat(uncertainty_list)
+			_, top_indices = uncertainty.topk(amount)
+			chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+			self.label_indices(chosen_indices)
 
 	def label_entropy(self, amount: int, model: pl.LightningModule):
 		self.label_uncertain(amount, model, 'entropy')
@@ -191,37 +192,39 @@ class IALDataModule(pl.LightningDataModule):
 		# TODO make delta a hyperparameter
 		delta = 10
 		batch_size = self.hparams.eval_batch_size
-		for _ in tqdm.trange(amount - dist, desc='Labeling'):
-			min_sum_dist = 0
-			cache_labeled = []
 
-			for batch_labeled in self.labeled_dataloader():
-				x_labeled, _ = batch_labeled
-				h_labeled = model.convolutional(x_labeled)
-				for layer in model.fully_connected:
-					h_labeled = layer(h_labeled)
-				cache_labeled.append(h_labeled)
+		with torch.no_grad():
+			for _ in tqdm.trange(amount - dist, desc='Labeling'):
+				min_sum_dist = 0
+				cache_labeled = []
 
-			for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
-				x_unlabeled, _ = batch_unlabeled
-				h_unlabeled = model.convolutional(x_unlabeled)
-				for layer in model.fully_connected:
-					h_unlabeled = layer(h_unlabeled)
+				for batch_labeled in self.labeled_dataloader():
+					x_labeled, _ = batch_labeled
+					h_labeled = model.convolutional(x_labeled)
+					for layer in model.fully_connected:
+						h_labeled = layer(h_labeled)
+					cache_labeled.append(h_labeled)
 
-				sum_dist = torch.full([len(h_unlabeled)], numpy.Inf)
-				for h_labeled in cache_labeled:
-					uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
-					ll = h_labeled.pow(2).sum(1, keepdim=True)
-					lu = h_labeled @ h_unlabeled.T
-					dist = (uu + ll - 2*lu).sqrt()
-					dist_gauss = torch.exp(- dist / delta)
-					sum_dist = sum_dist + dist_gauss.sum(0)
+				for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
+					x_unlabeled, _ = batch_unlabeled
+					h_unlabeled = model.convolutional(x_unlabeled)
+					for layer in model.fully_connected:
+						h_unlabeled = layer(h_unlabeled)
 
-				cur_index = (sum_dist - min_sum_dist).argmin()
-				min_sum_dist = sum_dist[cur_index]
-				chosen_index = self.data_unlabeled.indices[batch_size * batch_index + cur_index]
+					sum_dist = torch.full([len(h_unlabeled)], numpy.Inf)
+					for h_labeled in cache_labeled:
+						uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
+						ll = h_labeled.pow(2).sum(1, keepdim=True)
+						lu = h_labeled @ h_unlabeled.T
+						dist = (uu + ll - 2*lu).sqrt()
+						dist_gauss = torch.exp(- dist / delta)
+						sum_dist = sum_dist + dist_gauss.sum(0)
 
-			self.label_indices([chosen_index])
+					cur_index = (sum_dist - min_sum_dist).argmin()
+					min_sum_dist = sum_dist[cur_index]
+					chosen_index = self.data_unlabeled.indices[batch_size * batch_index + cur_index]
+
+				self.label_indices([chosen_index])
 
 
 	# Class-Balanced Active Learning for Image Classification
@@ -236,87 +239,111 @@ class IALDataModule(pl.LightningDataModule):
 
 		batch_size = self.hparams.eval_batch_size
 
-		for _ in tqdm.trange(amount, desc='Labeling'):
-			max_uncertainty = float('-inf')
-			for batch_index, batch in enumerate(self.unlabeled_dataloader()):
-				images, _ = batch
-				output, _ = model(images)
+		with torch.no_grad():
+			for _ in tqdm.trange(amount, desc='Labeling'):
+				max_uncertainty = float('-inf')
+				for batch_index, batch in enumerate(self.unlabeled_dataloader()):
+					images, _ = batch
+					output, _ = model(images)
 
-				try:
-					# Multiclass, softmax
-					preds = torch.nn.functional.softmax(output, 1)
-				except IndexError:
-					# Binary, sigmoid
-					preds_binary = torch.sigmoid(output)
-					preds = torch.stack([preds_binary, 1 - preds_binary], 1)
+					try:
+						# Multiclass, softmax
+						preds = torch.nn.functional.softmax(output, 1)
+					except IndexError:
+						# Binary, sigmoid
+						preds_binary = torch.sigmoid(output)
+						preds = torch.stack([preds_binary, 1 - preds_binary], 1)
 
-				uncertainty_score = -(preds*preds.log()).sum(1)
-				balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
-				balance_penalty = self.hparams.class_balancing_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
+					uncertainty_score = -(preds*preds.log()).sum(1)
+					balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
+					balance_penalty = self.hparams.class_balancing_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
 
-				cur_uncertainty, cur_index = torch.max(uncertainty_score - balance_penalty, axis=0)
-				if cur_uncertainty > max_uncertainty:
-					max_index = batch_size * batch_index + cur_index
+					cur_uncertainty, cur_index = torch.max(uncertainty_score - balance_penalty, axis=0)
+					if cur_uncertainty > max_uncertainty:
+						max_index = batch_size * batch_index + cur_index
+						max_uncertainty = cur_uncertainty
 
-			chosen_index = self.data_unlabeled.indices[max_index]
-			self.label_indices([chosen_index])
+				print()
+				print()
+				print("CBAL Debug Report")
+				print(f"  - {max_uncertainty=}")
+				print(f"  - {batch_index=}")
+				print(f"  - {self.class_balance=}")
+				print(f"  - {cur_uncertainty=}")
+				print(f"  - {balance_omega=}")
+				print(f"  - {balance_penalty=}")
+				print(f"  - {uncertainty_score=}")
+				print()
+				print()
+
+				chosen_index = self.data_unlabeled.indices[max_index]
+				self.label_indices([chosen_index])
 
 
 	# Learning Loss for Active Learning
 	# Donggeun Yoo, In So Kweon
 	def label_highest_loss(self, amount: int, model: pl.LightningModule):
-		uncertainty_list = []
-		for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
-			x, _ = batch
-			_, losses_hat = model(x)
-			uncertainty_list.append(losses_hat)
+		with torch.no_grad():
+			uncertainty_list = []
+			for batch in tqdm.tqdm(self.unlabeled_dataloader(), desc='Labeling'):
+				x, _ = batch
+				_, losses_hat = model(x)
+				uncertainty_list.append(losses_hat)
 
-		uncertainty = torch.cat(uncertainty_list)
-		_, top_indices = uncertainty.topk(amount)
-		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
-		self.label_indices(chosen_indices)
+			uncertainty = torch.cat(uncertainty_list)
+			_, top_indices = uncertainty.topk(amount)
+			chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+			self.label_indices(chosen_indices)
 
 
 	# Active Learning for Convolutional Neural Networks: A Core-Set Approach
 	# Ozan Sener, Silvio Savarese
 	def label_k_center(self, amount: int, model: pl.LightningModule):
-		raise NotImplementedError
+		with torch.no_grad():
+			raise NotImplementedError
 
 	def label_k_center_greedy(self, amount: int, model: pl.LightningModule):
 		# Each time, get the unlabeled data point with the largest minimum distance to a labeled data point
-
 		batch_size = self.hparams.eval_batch_size
+			
+		with torch.no_grad():
+			for _ in tqdm.trange(amount, desc='Labeling'):
+				max_min_dist = 0
+				cache_labeled = []
 
-		for _ in tqdm.trange(amount, desc='Labeling'):
-			max_min_dist = 0
-			cache_labeled = []
+				for batch_labeled in self.labeled_dataloader():
+					x_labeled, _ = batch_labeled
+					h_labeled = model.convolutional(x_labeled)
+					for layer in model.fully_connected:
+						h_labeled = layer(h_labeled)
+					cache_labeled.append(h_labeled)
 
-			for batch_labeled in self.labeled_dataloader():
-				x_labeled, _ = batch_labeled
-				h_labeled = model.convolutional(x_labeled)
-				for layer in model.fully_connected:
-					h_labeled = layer(h_labeled)
-				cache_labeled.append(h_labeled)
+				for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
+					x_unlabeled, _ = batch_unlabeled
+					h_unlabeled = model.convolutional(x_unlabeled)
+					for layer in model.fully_connected:
+						h_unlabeled = layer(h_unlabeled)
 
-			for batch_index, batch_unlabeled in enumerate(self.unlabeled_dataloader()):
-				x_unlabeled, _ = batch_unlabeled
-				h_unlabeled = model.convolutional(x_unlabeled)
-				for layer in model.fully_connected:
-					h_unlabeled = layer(h_unlabeled)
+					min_dist = torch.full([len(h_unlabeled)], numpy.Inf)
+					for h_labeled in cache_labeled:
+						uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
+						ll = h_labeled.pow(2).sum(1, keepdim=True)
+						lu = h_labeled @ h_unlabeled.T
+						dist = (uu + ll - 2*lu)#.sqrt()
+						min_dist = torch.min(min_dist, dist.min(0)[0])
 
-				min_dist = torch.full([len(h_unlabeled)], numpy.Inf)
-				for h_labeled in cache_labeled:
-					uu = h_unlabeled.pow(2).sum(1, keepdim=True).T
-					ll = h_labeled.pow(2).sum(1, keepdim=True)
-					lu = h_labeled @ h_unlabeled.T
-					dist = (uu + ll - 2*lu)#.sqrt()
-					min_dist = torch.min(min_dist, dist.min(0)[0])
+					cur_index = (min_dist - max_min_dist).argmax()
+					max_min_dist = min_dist[cur_index]
+					chosen_index = self.data_unlabeled.indices[batch_size * batch_index + cur_index]
 
-				cur_index = (min_dist - max_min_dist).argmax()
-				max_min_dist = min_dist[cur_index]
-				chosen_index = self.data_unlabeled.indices[batch_size * batch_index + cur_index]
+				self.label_indices([chosen_index])
 
-			self.label_indices([chosen_index])
+
+	def label_influence(self, amount: int, model: pl.LightningModule):
+		params = [p for p in model.parameters() if p.requires_grad]
+		print(params)
+
+		raise NotImplementedError
 
 
 	def label_data(self, model):
@@ -332,12 +359,12 @@ class IALDataModule(pl.LightningDataModule):
 			'class-balanced-greedy': self.label_class_balanced_greedy,
 			'hal-r': self.label_hal_r,
 			'hal-g': self.label_hal_g,
+			'influence': self.label_influence,
 		}
 
-		with torch.no_grad():
-			cb_before = self.class_balance / len(self.data_train) * 100
-			aquisition_methods[self.hparams.aquisition_method](self.hparams.labeling_budget, model)
-			cb_after = self.class_balance / len(self.data_train) * 100
+		cb_before = self.class_balance / len(self.data_train) * 100
+		aquisition_methods[self.hparams.aquisition_method](self.hparams.labeling_budget, model)
+		cb_after = self.class_balance / len(self.data_train) * 100
 
 		print('Data labeled, class balance:')
 
