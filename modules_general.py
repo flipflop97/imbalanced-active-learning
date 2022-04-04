@@ -1,4 +1,5 @@
 import random
+from sys import stderr
 import numpy
 import tqdm
 import torch
@@ -130,7 +131,7 @@ class IALDataModule(pl.LightningDataModule):
 	def label_uncertain(self, amount: int, model: pl.LightningModule, uncertainty_method: str):
 		if uncertainty_method == 'entropy':
 			def uncertainty_method_fn(preds):
-				return -(preds*preds.log()).sum(1)
+				return -(preds*preds.log()).sum(1).nan_to_num(0)
 
 		elif uncertainty_method == 'margin':
 			def uncertainty_method_fn(preds):
@@ -254,7 +255,7 @@ class IALDataModule(pl.LightningDataModule):
 						preds_binary = torch.sigmoid(output)
 						preds = torch.stack([preds_binary, 1 - preds_binary], 1)
 
-					uncertainty_score = -(preds*preds.log()).sum(1)
+					uncertainty_score = -(preds*preds.log()).sum(1).nan_to_num(0)
 					balance_omega = torch.clamp(len(self.data_train) / len(self.data_train.dataset.classes) - self.class_balance, min=0)
 					balance_penalty = self.hparams.class_balancing_factor * torch.norm(balance_omega.unsqueeze(0) - preds, p=1, dim=1)
 
@@ -263,18 +264,19 @@ class IALDataModule(pl.LightningDataModule):
 						max_index = batch_size * batch_index + cur_index
 						max_uncertainty = cur_uncertainty
 
-				print()
-				print()
-				print("CBAL Debug Report")
-				print(f"  - {max_uncertainty=}")
-				print(f"  - {batch_index=}")
-				print(f"  - {self.class_balance=}")
-				print(f"  - {cur_uncertainty=}")
-				print(f"  - {balance_omega=}")
-				print(f"  - {balance_penalty=}")
-				print(f"  - {uncertainty_score=}")
-				print()
-				print()
+				import sys
+				print(file=sys.stderr)
+				print(file=sys.stderr)
+				print("CBAL Debug Report", file=sys.stderr)
+				print(f"  - {max_uncertainty=}", file=sys.stderr)
+				print(f"  - {batch_index=}", file=sys.stderr)
+				print(f"  - {self.class_balance=}", file=sys.stderr)
+				print(f"  - {cur_uncertainty=}", file=sys.stderr)
+				print(f"  - {balance_omega=}", file=sys.stderr)
+				print(f"  - {balance_penalty=}", file=sys.stderr)
+				print(f"  - {uncertainty_score=}", file=sys.stderr)
+				print(file=sys.stderr)
+				print(file=sys.stderr)
 
 				chosen_index = self.data_unlabeled.indices[max_index]
 				self.label_indices([chosen_index])
