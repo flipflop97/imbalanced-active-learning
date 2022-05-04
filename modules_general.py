@@ -1,3 +1,4 @@
+from multiprocessing import reduction
 import random
 from sys import stderr
 import numpy
@@ -51,48 +52,57 @@ class IALDataModule(pl.LightningDataModule):
 			self.data_train,
 			batch_size=self.hparams.train_batch_size,
 			shuffle=True,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def val_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_val,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def test_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def predict_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_test,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def labeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_train,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
+		)
+
+	def labeled_dataloader_single(self):
+		return torch.utils.data.DataLoader(
+			self.data_train,
+			batch_size=1,
+			shuffle=True,
+			num_workers=self.hparams.dataloader_workers
 		)
 
 	def unlabeled_dataloader(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
 			batch_size=self.hparams.eval_batch_size,
-			num_workers=self.hparams.dataloader_workers,
-			persistent_workers=True
+			num_workers=self.hparams.dataloader_workers
+		)
+	
+	def unlabeled_dataloader_single(self):
+		return torch.utils.data.DataLoader(
+			self.data_unlabeled,
+			batch_size=1,
+			num_workers=self.hparams.dataloader_workers
 		)
 
 
@@ -341,11 +351,58 @@ class IALDataModule(pl.LightningDataModule):
 				self.label_indices([chosen_index])
 
 
+	# https://github.com/nimarb/pytorch_influence_functions/blob/master/pytorch_influence_functions/influence_function.py
 	def label_influence(self, amount: int, model: pl.LightningModule):
-		params = [p for p in model.parameters() if p.requires_grad]
-		print(params)
 
-		raise NotImplementedError
+		# This might make things less complicated and faster
+		# params = torch.nn.utils.parameters_to_vector(p for p in model.parameters() if p.requires_grad)
+		params = [p for p in model.parameters() if p.requires_grad]
+		
+		def calc_hvp(loss, s_test):
+			first_grads = torch.autograd.grad(loss, params, create_graph=True, retain_graph=True)
+			elemwise_products = sum(torch.sum(grad_i * s_test_i) for grad_i, s_test_i in zip(first_grads, s_test))
+			gradients = torch.autograd.grad(elemwise_products, params, create_graph=True, retain_graph=False)
+			return [gradient.detach() for gradient in gradients]
+
+		# TODO make max_interations a hyperparameter
+		def calc_s_test(max_iterations: int = 100):
+			loss = 0
+			for images, targets in self.val_dataloader():
+				predictions, _ = model(images)
+				loss += model.loss(predictions, targets, reduction='sum')
+			loss /= len(self.data_val)
+
+			gradients = torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)
+			v =  [gradient.detach() for gradient in gradients]
+
+			s_test = v.copy()
+			for batch, (images, targets) in enumerate(self.labeled_dataloader_single()):
+				predictions, _ = model(images)
+				loss = model.loss(predictions, targets)
+				hvp = calc_hvp(loss, s_test)
+				s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
+				
+				if batch >= max_iterations - 1:
+					break
+
+			return s_test
+
+		s_test = calc_s_test()
+
+		# TODO Is this batchable?
+		influences = []
+		for images, _ in tqdm.tqdm(self.unlabeled_dataloader_single(), desc='Labeling'):
+			predictions, _ = model(images)
+			certainties, targets = predictions.max(1)
+			loss = model.loss(predictions, targets)
+			g_z = [gradients.detach() * certainties for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
+			influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
+			influences.append(influence)
+
+		# TODO A lot of negative influence, could these also be helpful?
+		_, top_indices = torch.tensor(influences).topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]	
+		self.label_indices(chosen_indices)
 
 
 	def label_data(self, model):
@@ -467,10 +524,10 @@ class IALModel(pl.LightningModule):
 
 	def on_train_end(self):
 		# https://github.com/PyTorchLightning/pytorch-lightning/issues/5007
-		self.trainer.fit_loop.current_epoch += 1
+		# self.trainer.fit_loop.current_epoch += 1
 
 		# To force skip early stopping the next epoch
-		self.trainer.fit_loop.min_epochs = self.trainer.fit_loop.current_epoch + self.hparams.min_epochs
+		self.trainer.fit_loop.min_epochs = self.trainer.fit_loop.epoch_progress.current.processed + self.hparams.min_epochs
 
 
 	def validation_step(self, batch, batch_idx):
