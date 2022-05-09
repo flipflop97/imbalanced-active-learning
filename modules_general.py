@@ -97,7 +97,7 @@ class IALDataModule(pl.LightningDataModule):
 			batch_size=self.hparams.eval_batch_size,
 			num_workers=self.hparams.dataloader_workers
 		)
-	
+
 	def unlabeled_dataloader_single(self):
 		return torch.utils.data.DataLoader(
 			self.data_unlabeled,
@@ -199,7 +199,7 @@ class IALDataModule(pl.LightningDataModule):
 		dist = sum(random.getrandbits(1) for _ in range(amount))
 
 		self.label_margin(dist, model)
-		
+
 		# TODO make delta a hyperparameter
 		delta = 10
 		batch_size = self.hparams.eval_batch_size
@@ -317,7 +317,7 @@ class IALDataModule(pl.LightningDataModule):
 	def label_k_center_greedy(self, amount: int, model: pl.LightningModule):
 		# Each time, get the unlabeled data point with the largest minimum distance to a labeled data point
 		batch_size = self.hparams.eval_batch_size
-			
+
 		with torch.no_grad():
 			for _ in tqdm.trange(amount, desc='Labeling'):
 				max_min_dist = 0
@@ -353,11 +353,8 @@ class IALDataModule(pl.LightningDataModule):
 
 	# https://github.com/nimarb/pytorch_influence_functions/blob/master/pytorch_influence_functions/influence_function.py
 	def label_influence(self, amount: int, model: pl.LightningModule):
-
-		# This might make things less complicated and faster
-		# params = torch.nn.utils.parameters_to_vector(p for p in model.parameters() if p.requires_grad)
 		params = [p for p in model.parameters() if p.requires_grad]
-		
+
 		def calc_hvp(loss, s_test):
 			first_grads = torch.autograd.grad(loss, params, create_graph=True, retain_graph=True)
 			elemwise_products = sum(torch.sum(grad_i * s_test_i) for grad_i, s_test_i in zip(first_grads, s_test))
@@ -373,7 +370,7 @@ class IALDataModule(pl.LightningDataModule):
 			loss /= len(self.data_val)
 
 			gradients = torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)
-			v =  [gradient.detach() for gradient in gradients]
+			v = [gradient.detach() for gradient in gradients]
 
 			s_test = v.copy()
 			for batch, (images, targets) in enumerate(self.labeled_dataloader_single()):
@@ -381,7 +378,7 @@ class IALDataModule(pl.LightningDataModule):
 				loss = model.loss(predictions, targets)
 				hvp = calc_hvp(loss, s_test)
 				s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
-				
+
 				if batch >= max_iterations - 1:
 					break
 
@@ -401,7 +398,7 @@ class IALDataModule(pl.LightningDataModule):
 
 		# TODO A lot of negative influence, could these also be helpful?
 		_, top_indices = torch.tensor(influences).topk(amount)
-		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]	
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
 
@@ -525,9 +522,6 @@ class IALModel(pl.LightningModule):
 		return loss
 
 	def on_train_end(self):
-		# https://github.com/PyTorchLightning/pytorch-lightning/issues/5007
-		# self.trainer.fit_loop.current_epoch += 1
-
 		# To force skip early stopping the next epoch
 		self.trainer.fit_loop.min_epochs = self.trainer.fit_loop.epoch_progress.current.processed + self.hparams.min_epochs
 
