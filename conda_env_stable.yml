@@ -10,7 +10,6 @@ dependencies:
   - aom=3.3.0=h27087fc_1
   - async-timeout=4.0.2=pyhd8ed1ab_0
   - attrs=21.4.0=pyhd8ed1ab_0
-  - bcrypt=3.2.2=py39hb9d737c_0
   - blinker=1.4=py_1
   - brotlipy=0.7.0=py39hb9d737c_1004
   - bzip2=1.0.8=h7f98852_4
@@ -62,7 +61,6 @@ dependencies:
   - libpciaccess=0.16=h516909a_0
   - libpng=1.6.37=h21135ba_2
   - libprotobuf=3.19.4=h780b84a_0
-  - libsodium=1.0.18=h36c2ea0_1
   - libstdcxx-ng=11.2.0=he4da1e4_16
   - libtiff=4.3.0=h542a066_3
   - libuuid=2.32.1=h7f98852_1000
@@ -76,7 +74,7 @@ dependencies:
   - llvm-openmp=14.0.3=he0ac6c6_0
   - lz4-c=1.9.3=h9c3ff4c_1
   - magma=2.5.4=h5da55e3_2
-  - markdown=3.3.6=pyhd8ed1ab_0
+  - markdown=3.3.7=pyhd8ed1ab_0
   - mkl=2022.0.1=h8d4b97c_803
   - multidict=6.0.2=py39hb9d737c_1
   - nccl=2.12.10.1=h1a5f58c_0
@@ -87,9 +85,8 @@ dependencies:
   - oauthlib=3.2.0=pyhd8ed1ab_0
   - openh264=2.1.1=h780b84a_0
   - openjpeg=2.4.0=hb52868f_1
-  - openssl=1.1.1n=h166bdaf_0
+  - openssl=1.1.1o=h166bdaf_0
   - packaging=21.3=pyhd8ed1ab_0
-  - paramiko=2.10.4=pyhd8ed1ab_0
   - pathtools=0.1.2=py_1
   - pillow=9.1.0=py39hae2aec6_2
   - pip=22.0.4=pyhd8ed1ab_0
@@ -102,7 +99,6 @@ dependencies:
   - pycparser=2.21=pyhd8ed1ab_0
   - pydeprecate=0.3.2=pyhd8ed1ab_0
   - pyjwt=2.3.0=pyhd8ed1ab_1
-  - pynacl=1.5.0=py39hb9d737c_1
   - pyopenssl=22.0.0=pyhd8ed1ab_0
   - pyparsing=3.0.8=pyhd8ed1ab_0
   - pysocks=1.7.1=py39hf3d152e_5
@@ -126,22 +122,22 @@ dependencies:
   - six=1.16.0=pyh6c4a22f_0
   - sleef=3.5.1=h9b69904_2
   - smmap=3.0.5=pyh44b312d_0
-  - sqlite=3.38.3=h4ff8645_0
+  - sqlite=3.38.5=h4ff8645_0
   - svt-av1=0.9.1=h27087fc_0
   - tbb=2021.5.0=h924138e_1
   - tensorboard=2.9.0=pyhd8ed1ab_0
   - tensorboard-data-server=0.6.0=py39hd97740a_2
   - tensorboard-plugin-wit=1.8.1=pyhd8ed1ab_0
   - tk=8.6.12=h27826a3_0
-  - torchmetrics=0.8.1=pyhd8ed1ab_0
+  - torchmetrics=0.8.2=pyhd8ed1ab_0
   - torchvision=0.12.0=cuda102py39ha484c2f_1
   - tqdm=4.64.0=pyhd8ed1ab_0
   - typing-extensions=4.2.0=hd8ed1ab_1
   - typing_extensions=4.2.0=pyha770c72_1
   - tzdata=2022a=h191b570_0
   - urllib3=1.26.9=pyhd8ed1ab_0
-  - wandb=0.12.14=pyhd8ed1ab_0
-  - werkzeug=2.1.2=pyhd8ed1ab_0
+  - wandb=0.12.15=pyhd8ed1ab_0
+  - werkzeug=2.1.2=pyhd8ed1ab_1
   - wheel=0.37.1=pyhd8ed1ab_0
   - x264=1!161.3030=h7f98852_1
   - x265=3.5=h924138e_3

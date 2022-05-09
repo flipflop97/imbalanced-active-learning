@@ -1,0 +1,14 @@
+name: ial
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - python
+  - pytorch
+  - pytorch-gpu
+  - pytorch-lightning
+  - scipy
+  - torchmetrics
+  - torchvision
+  - tqdm
+  - wandb
