@@ -17,7 +17,8 @@ TEXT_UNDERLINED = '\033[4m'
 def main():
 	try:
 		test_datasets()
-		test_aquisition_methods()
+		test_aquisition_methods(True)
+		test_aquisition_methods(False)
 	except KeyboardInterrupt:
 		pass
 
@@ -50,7 +51,7 @@ def test_datasets():
 			raise KeyboardInterrupt
 
 
-def test_aquisition_methods():
+def test_aquisition_methods(binary: bool = False):
 	for aquisition_method in [
 			'random',
 			'least-confident', 'margin', 'entropy',
@@ -63,7 +64,7 @@ def test_aquisition_methods():
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 
 		args = parse_arguments([
-			'mnist',
+			'mnist-binary' if binary else 'mnist',
 			aquisition_method,
 			'--labeling-budget=10'
 		])

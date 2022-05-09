@@ -393,7 +393,7 @@ class IALDataModule(pl.LightningDataModule):
 		influences = []
 		for images, _ in tqdm.tqdm(self.unlabeled_dataloader_single(), desc='Labeling'):
 			predictions, _ = model(images)
-			certainties, targets = predictions.max(1)
+			certainties, targets = model.guess(predictions)
 			loss = model.loss(predictions, targets)
 			g_z = [gradients.detach() * certainties for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
 			influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
@@ -471,8 +471,10 @@ class IALModel(pl.LightningModule):
 		self.classifier = torch.nn.Linear(layers_fc[-1], 1 if classes == 2 else classes)
 
 		if classes <= 2:
+			self.binary = True
 			self.loss = data_utils.bce_tofloat_loss
 		else:
+			self.binary = False
 			self.loss = torch.nn.functional.cross_entropy
 
 		self.accuracy = torchmetrics.Accuracy()
@@ -575,3 +577,13 @@ class IALModel(pl.LightningModule):
 
 	def configure_optimizers(self):
 		return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+
+
+	def guess(self, predictions):
+		if self.binary:
+			certainties = predictions
+			targets = predictions > 0.5
+		else:
+			certainties, targets = predictions.max(1)
+
+		return certainties, targets
