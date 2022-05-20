@@ -63,7 +63,7 @@ def parse_arguments(*args, **kwargs):
 			'k-center-greedy',
 			'class-balanced-greedy',
 			'hal-r', 'hal-g',
-			'influence',
+			'influence', 'influence-abs',
 		],
 		help="The unlabeled data aquisition method to use"
 	)

@@ -353,7 +353,7 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	# https://github.com/nimarb/pytorch_influence_functions/blob/master/pytorch_influence_functions/influence_function.py
-	def label_influence(self, amount: int, model: pl.LightningModule):
+	def rank_influence(self, amount: int, model: pl.LightningModule):
 		params = [p for p in model.parameters() if p.requires_grad]
 
 		def calc_hvp(loss, s_test):
@@ -397,8 +397,19 @@ class IALDataModule(pl.LightningDataModule):
 			influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
 			influences.append(influence)
 
-		# TODO A lot of negative influence, could these also be helpful?
-		_, top_indices = torch.tensor(influences).topk(amount)
+		return torch.tensor(influences)
+
+	def label_influence(self, amount: int, model: pl.LightningModule):
+		influences = self.rank_influence(amount, model)
+
+		_, top_indices = influences.topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
+	def label_influence_abs(self, amount: int, model: pl.LightningModule):
+		influences = self.rank_influence(amount, model).abs()
+
+		_, top_indices = influences.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
@@ -417,6 +428,7 @@ class IALDataModule(pl.LightningDataModule):
 			'hal-r': self.label_hal_r,
 			'hal-g': self.label_hal_g,
 			'influence': self.label_influence,
+			'influence-abs': self.label_influence_abs,
 		}
 
 		cb_before = self.class_balance / len(self.data_train) * 100
