@@ -116,6 +116,7 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	def label_indices(self, indices: list):
+		print(f"\nLabeling: {indices}\n")
 		self.data_train.indices = sorted(list(set(self.data_train.indices + indices)))
 		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
@@ -576,7 +577,7 @@ class IALModel(pl.LightningModule):
 	def guess(self, predictions):
 		if self.binary:
 			certainties = predictions
-			targets = predictions > 0.5
+			targets = (predictions > 0).int()
 		else:
 			certainties, targets = predictions.max(1)
 
