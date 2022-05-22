@@ -23,9 +23,14 @@ class IALDataModule(pl.LightningDataModule):
 		self.data_test = None
 		self.data_unlabeled = None
 
+		self.setup_fit_done = False
+		self.setup_test_done = False
+
 
 	def setup(self, stage:str=None):
-		if stage == "fit" or stage == "validate" or stage is None:
+		if stage in ["fit", "validate", None] and not self.setup_fit_done:
+			self.setup_fit_done = True
+
 			data_full = self.get_data_train()
 
 			# Split dataset in unlabeled and validation sets randomly
@@ -43,7 +48,9 @@ class IALDataModule(pl.LightningDataModule):
 			self.label_each_class()
 			self.label_randomly(self.hparams.initial_labels - len(data_full.classes), None)
 
-		if stage == "test" or stage is None:
+		if stage in ["test", None] and not self.setup_test_done:
+			self.setup_test_done = True
+
 			self.data_test = self.get_data_test()
 
 
@@ -362,8 +369,7 @@ class IALDataModule(pl.LightningDataModule):
 			gradients = torch.autograd.grad(elemwise_products, params, create_graph=True, retain_graph=False)
 			return [gradient.detach() for gradient in gradients]
 
-		# TODO make max_interations a hyperparameter
-		def calc_s_test(max_iterations: int = 100):
+		def calc_s_test():
 			loss = 0
 			for images, targets in self.val_dataloader():
 				predictions, _ = model(images)
@@ -380,7 +386,7 @@ class IALDataModule(pl.LightningDataModule):
 				hvp = calc_hvp(loss, s_test)
 				s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
 
-				if batch >= max_iterations - 1:
+				if batch >= self.hparams.influence_max_iterations - 1:
 					break
 
 			return s_test

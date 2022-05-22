@@ -99,6 +99,10 @@ def parse_arguments(*args, **kwargs):
 		'--class-balancing-factor', type=float, default=1,
 		help="Multiplier used for adjusting the class-balancing effect"
 	)
+	parser.add_argument(
+		'--influence-max-iterations', type=int, default=100,
+		help="Maximum iterations of calculating s_test for influence aquisition"
+	)
 
 	# Device related
 	parser.add_argument(
