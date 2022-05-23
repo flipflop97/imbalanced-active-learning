@@ -123,7 +123,6 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	def label_indices(self, indices: list):
-		print(f"\nLabeling: {indices}\n")
 		self.data_train.indices = sorted(list(set(self.data_train.indices + indices)))
 		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
@@ -196,20 +195,16 @@ class IALDataModule(pl.LightningDataModule):
 	# Active Learning for Skewed Data Sets
 	# Abbas Kazerouni et al
 	def label_hal_r(self, amount: int, model: pl.LightningModule):
-		# TODO make p a hyperparameter
-		dist = sum(random.getrandbits(1) for _ in range(amount))
+		dist = numpy.random.binomial(amount, self.hparams.hal_exploit_probability)
 
 		self.label_margin(dist, model)
 		self.label_randomly(amount - dist, model)
 
 	def label_hal_g(self, amount: int, model: pl.LightningModule):
-		# TODO make p a hyperparameter
-		dist = sum(random.getrandbits(1) for _ in range(amount))
+		dist = numpy.random.binomial(amount, self.hparams.hal_exploit_probability)
 
 		self.label_margin(dist, model)
 
-		# TODO make delta a hyperparameter
-		delta = 10
 		batch_size = self.hparams.eval_batch_size
 
 		with torch.no_grad():
@@ -236,7 +231,7 @@ class IALDataModule(pl.LightningDataModule):
 						ll = h_labeled.pow(2).sum(1, keepdim=True)
 						lu = h_labeled @ h_unlabeled.T
 						dist = (uu + ll - 2*lu).sqrt()
-						dist_gauss = torch.exp(- dist / delta)
+						dist_gauss = torch.exp(- dist / self.hparams.hal_gaussian_variance)
 						sum_dist = sum_dist + dist_gauss.sum(0)
 
 					cur_index = (sum_dist - min_sum_dist).argmin()
@@ -281,20 +276,6 @@ class IALDataModule(pl.LightningDataModule):
 					if cur_uncertainty > max_uncertainty:
 						max_index = batch_size * batch_index + cur_index
 						max_uncertainty = cur_uncertainty
-
-				import sys
-				print(file=sys.stderr)
-				print(file=sys.stderr)
-				print("CBAL Debug Report", file=sys.stderr)
-				print(f"  - {max_uncertainty=}", file=sys.stderr)
-				print(f"  - {batch_index=}", file=sys.stderr)
-				print(f"  - {self.class_balance=}", file=sys.stderr)
-				print(f"  - {cur_uncertainty=}", file=sys.stderr)
-				print(f"  - {balance_omega=}", file=sys.stderr)
-				print(f"  - {balance_penalty=}", file=sys.stderr)
-				print(f"  - {uncertainty_score=}", file=sys.stderr)
-				print(file=sys.stderr)
-				print(file=sys.stderr)
 
 				chosen_index = self.data_unlabeled.indices[max_index]
 				self.label_indices([chosen_index])
@@ -419,6 +400,13 @@ class IALDataModule(pl.LightningDataModule):
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
+	def label_influence_neg(self, amount: int, model: pl.LightningModule):
+		influences = -self.rank_influence(amount, model)
+
+		_, top_indices = influences.topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
 
 	def label_data(self, model):
 		aquisition_methods = {
@@ -435,6 +423,7 @@ class IALDataModule(pl.LightningDataModule):
 			'hal-g': self.label_hal_g,
 			'influence': self.label_influence,
 			'influence-abs': self.label_influence_abs,
+			'influence-neg': self.label_influence_neg,
 		}
 
 		cb_before = self.class_balance / len(self.data_train) * 100

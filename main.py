@@ -63,7 +63,7 @@ def parse_arguments(*args, **kwargs):
 			'k-center-greedy',
 			'class-balanced-greedy',
 			'hal-r', 'hal-g',
-			'influence', 'influence-abs',
+			'influence', 'influence-abs', 'influence-neg',
 		],
 		help="The unlabeled data aquisition method to use"
 	)
@@ -102,6 +102,14 @@ def parse_arguments(*args, **kwargs):
 	parser.add_argument(
 		'--influence-max-iterations', type=int, default=100,
 		help="Maximum iterations of calculating s_test for influence aquisition"
+	)
+	parser.add_argument(
+		'--hal-exploit-probability', type=percentage, default=0.5,
+		help="Probability in HAL of choosing the exploit aquisition as opposed to the exploring one"
+	)
+	parser.add_argument(
+		'--hal-gaussian-variance', type=float, default=10,
+		help="Variance used by HAL-G aquisition in calculating gaussian distance"
 	)
 
 	# Device related
