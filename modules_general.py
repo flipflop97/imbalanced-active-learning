@@ -123,6 +123,7 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	def label_indices(self, indices: list):
+		print(f"\nLabeling: {indices}\n")
 		self.data_train.indices = sorted(list(set(self.data_train.indices + indices)))
 		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
@@ -359,16 +360,19 @@ class IALDataModule(pl.LightningDataModule):
 
 			gradients = torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)
 			v = [gradient.detach() for gradient in gradients]
-
 			s_test = v.copy()
-			for batch, (images, targets) in enumerate(self.labeled_dataloader_single()):
-				predictions, _ = model(images)
-				loss = model.loss(predictions, targets)
-				hvp = calc_hvp(loss, s_test)
-				s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
 
-				if batch >= self.hparams.influence_max_iterations - 1:
-					break
+			current_iteration = 0
+			while current_iteration < self.hparams.influence_max_iterations:
+				for _, (images, targets) in enumerate(self.labeled_dataloader_single()):
+					predictions, _ = model(images)
+					loss = model.loss(predictions, targets)
+					hvp = calc_hvp(loss, s_test)
+					s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
+
+					current_iteration += 1
+					if current_iteration >= self.hparams.influence_max_iterations:
+						break
 
 			return s_test
 
