@@ -1,6 +1,4 @@
-from multiprocessing import reduction
 import random
-from sys import stderr
 import numpy
 import tqdm
 import torch
@@ -43,10 +41,7 @@ class IALDataModule(pl.LightningDataModule):
 			self.data_train = torch.utils.data.Subset(data_full, [])
 
 			data_utils.balance_classes(self.data_unlabeled, self.hparams.class_balance)
-
-			# Label 1 label of each class randomly, then label the rest randomly independant of classes
-			self.label_each_class()
-			self.label_randomly(self.hparams.initial_labels - len(data_full.classes), None)
+			self.label_static_distribution(self.hparams.initial_labels)
 
 		if stage in ["test", None] and not self.setup_test_done:
 			self.setup_test_done = True
@@ -123,7 +118,6 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	def label_indices(self, indices: list):
-		print(f"\nLabeling: {indices}\n")
 		self.data_train.indices = sorted(list(set(self.data_train.indices + indices)))
 		self.data_unlabeled.indices = sorted(list(set([index
 			for index in self.data_unlabeled.indices
@@ -135,13 +129,41 @@ class IALDataModule(pl.LightningDataModule):
 		self.label_indices(sum([
 			random.sample([index
 				for index in self.data_unlabeled.indices
-				if self.data_unlabeled.dataset.targets[index] == c
+				if self.data_unlabeled.dataset.targets[index] == class_num
 			], amount)
-			for c, _ in enumerate(self.data_unlabeled.dataset.classes)
+			for class_num, _ in enumerate(self.data_unlabeled.dataset.classes)
 		], []))
 
 
-	def label_randomly(self, amount: int, model: pl.LightningModule):
+	def label_static_distribution(self, amount: int):
+		'''
+		Label images randomly following the distribution of unlabeled data
+		'''
+		unlabeled_class_indices = [
+			[index
+				for index in self.data_unlabeled.indices
+				if self.data_unlabeled.dataset.targets[index] == class_num
+			] for class_num, _ in enumerate(self.data_unlabeled.dataset.classes)
+		]
+
+		# Label amount of imanges from each class relative to its size (rounded down)
+		labels_remaining = amount
+		for class_indices in unlabeled_class_indices:
+			class_labeling_count = int(amount * len(class_indices) / len(self.data_unlabeled))
+			self.label_indices(random.sample(class_indices, class_labeling_count))
+			labels_remaining -= class_labeling_count
+
+		# Choose random classes to label the remaining images
+		self.label_indices(sum([
+			random.sample([index
+				for index in self.data_unlabeled.indices
+				if self.data_unlabeled.dataset.targets[index] == class_num
+			], 1)
+			for class_num in random.sample(range(len(self.data_unlabeled.dataset.classes)), labels_remaining)
+		], []))
+
+
+	def label_randomly(self, amount: int, model: pl.LightningModule = None):
 		chosen_indices = random.sample(self.data_unlabeled.indices, amount)
 		self.label_indices(chosen_indices)
 

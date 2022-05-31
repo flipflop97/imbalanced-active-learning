@@ -23,6 +23,13 @@ def main():
 		pass
 
 
+def check_labeled_data(datamodule: pl.LightningDataModule, labeled_count: int):
+	assert len(datamodule.data_train) == labeled_count
+	assert len(datamodule.data_train) - len(set(datamodule.data_train)) == 0
+	assert len(datamodule.data_unlabeled) - len(set(datamodule.data_unlabeled)) == 0
+	assert len(set(datamodule.data_train).intersection(set(datamodule.data_unlabeled))) == 0
+
+
 def test_datasets():
 	for dataset in ['mnist-binary', 'mnist', 'cifar10', 'svhn']:
 		print(f"\n{TEXT_BOLD}Testing dataset {dataset}{TEXT_DEFAULT}")
@@ -50,6 +57,8 @@ def test_datasets():
 		if trainer.interrupted:
 			raise KeyboardInterrupt
 
+		check_labeled_data(datamodule, args.initial_labels)
+
 
 def test_aquisition_methods(binary: bool = False):
 	for aquisition_method in [
@@ -71,8 +80,10 @@ def test_aquisition_methods(binary: bool = False):
 
 		model, datamodule = data_utils.get_modules(args)
 		datamodule.setup('fit')
+		check_labeled_data(datamodule, args.initial_labels)
 
 		datamodule.label_data(model)
+		check_labeled_data(datamodule, args.initial_labels + args.labeling_budget)
 
 
 if __name__ == "__main__":
