@@ -75,6 +75,7 @@ def test_aquisition_methods(binary: bool = False):
 		args = parse_arguments([
 			'mnist-binary' if binary else 'mnist',
 			aquisition_method,
+			'--initial-labels=500',
 			'--labeling-budget=10'
 		])
 

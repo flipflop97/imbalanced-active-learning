@@ -41,7 +41,7 @@ def parse_arguments(*args, **kwargs):
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
-		'--min-epochs', type=int, default=25,
+		'--min-epochs', type=int, default=40,
 		help="Minimum epochs to train before switching to the early stopper"
 	)
 	parser.add_argument(
@@ -125,6 +125,10 @@ def parse_arguments(*args, **kwargs):
 		'--dataloader-workers', type=int, default=4,
 		help="Amount of workers used for dataloaders"
 	)
+	parser.add_argument(
+		'--disable-logging', action='store_true',
+		help="Disable logging results to WandB"
+	)
 
 	return parser.parse_args(*args, **kwargs)
 
@@ -139,7 +143,11 @@ def main():
 		args = parse_arguments()
 		use_gpu = torch.cuda.is_available()
 
-		logger = pl.loggers.WandbLogger(name=f"{args.dataset} {args.aquisition_method} {args.class_balance}")
+		if args.disable_logging:
+			logger = pl.loggers.base.DummyLogger()
+		else:
+			logger = pl.loggers.WandbLogger(name=f"{args.dataset} {args.aquisition_method} {args.class_balance}")
+
 		early_stopping_callback = pl.callbacks.early_stopping.EarlyStopping(
 			monitor='running/classification/validation/loss',
 			mode='min',

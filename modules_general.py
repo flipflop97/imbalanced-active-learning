@@ -364,7 +364,7 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	# https://github.com/nimarb/pytorch_influence_functions/blob/master/pytorch_influence_functions/influence_function.py
-	def rank_influence(self, amount: int, model: pl.LightningModule):
+	def rank_influence(self, model: pl.LightningModule):
 		params = [p for p in model.parameters() if p.requires_grad]
 
 		def calc_hvp(loss, s_test):
@@ -373,7 +373,7 @@ class IALDataModule(pl.LightningDataModule):
 			gradients = torch.autograd.grad(elemwise_products, params, create_graph=True, retain_graph=False)
 			return [gradient.detach() for gradient in gradients]
 
-		def calc_s_test():
+		def calc_v():
 			loss = 0
 			for images, targets in self.val_dataloader():
 				predictions, _ = model(images)
@@ -381,16 +381,33 @@ class IALDataModule(pl.LightningDataModule):
 			loss /= len(self.data_val)
 
 			gradients = torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)
-			v = [gradient.detach() for gradient in gradients]
+			return [gradient.detach() for gradient in gradients]
+
+		def calc_s_test():
+			v = calc_v()
 			s_test = v.copy()
 
 			current_iteration = 0
 			while current_iteration < self.hparams.influence_max_iterations:
-				for _, (images, targets) in enumerate(self.labeled_dataloader_single()):
+				for images, targets in self.labeled_dataloader_single():
 					predictions, _ = model(images)
 					loss = model.loss(predictions, targets)
 					hvp = calc_hvp(loss, s_test)
-					s_test = [v_i + s_test_i - hvp_i for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
+
+					# DEBUGGING STUFF
+					print("cur_it", current_iteration)
+					print("     v", v[-1][0].item())
+					print("   hvp", hvp[-1][0].item())
+					print("s_test", s_test[-1][0].item())
+
+					s_test = [(v_i + s_test_i - hvp_i).detach() for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
+
+					# DEBUGGING STUFF
+					print("new_st", s_test[-1][0].item())
+					print()
+					for unit in hvp:
+						if unit.isnan().any():
+							raise ValueError("One or more values of s_test bacame NaN")
 
 					current_iteration += 1
 					if current_iteration >= self.hparams.influence_max_iterations:
@@ -413,21 +430,21 @@ class IALDataModule(pl.LightningDataModule):
 		return torch.tensor(influences)
 
 	def label_influence(self, amount: int, model: pl.LightningModule):
-		influences = self.rank_influence(amount, model)
+		influences = self.rank_influence(model)
 
 		_, top_indices = influences.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
 	def label_influence_abs(self, amount: int, model: pl.LightningModule):
-		influences = self.rank_influence(amount, model).abs()
+		influences = self.rank_influence(model).abs()
 
 		_, top_indices = influences.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
 	def label_influence_neg(self, amount: int, model: pl.LightningModule):
-		influences = -self.rank_influence(amount, model)
+		influences = -self.rank_influence(model)
 
 		_, top_indices = influences.topk(amount)
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
