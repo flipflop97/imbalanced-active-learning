@@ -139,6 +139,7 @@ class IALDataModule(pl.LightningDataModule):
 		'''
 		Label images randomly following the distribution of unlabeled data
 		'''
+		unlabeled_data_count = len(self.data_unlabeled)
 		unlabeled_class_indices = [
 			[index
 				for index in self.data_unlabeled.indices
@@ -146,10 +147,10 @@ class IALDataModule(pl.LightningDataModule):
 			] for class_num, _ in enumerate(self.data_unlabeled.dataset.classes)
 		]
 
-		# Label amount of imanges from each class relative to its size (rounded down)
+		# Label amount of images from each class relative to its size (rounded down)
 		labels_remaining = amount
 		for class_indices in unlabeled_class_indices:
-			class_labeling_count = int(amount * len(class_indices) / len(self.data_unlabeled))
+			class_labeling_count = int(amount * len(class_indices) / unlabeled_data_count)
 			self.label_indices(random.sample(class_indices, class_labeling_count))
 			labels_remaining -= class_labeling_count
 
