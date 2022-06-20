@@ -75,14 +75,22 @@ def test_aquisition_methods(binary: bool = False):
 		args = parse_arguments([
 			'mnist-binary' if binary else 'mnist',
 			aquisition_method,
-			'--initial-labels=500',
-			'--labeling-budget=10'
+			'--initial-labels=1000',
+			'--labeling-budget=10',
+			'--class-balance=1'
 		])
 
+		# trainer = pl.Trainer(
+		# 	gpus=0,
+		# 	logger=None,
+		# 	enable_checkpointing=False,
+		# 	max_epochs=50
+		# )
 		model, datamodule = data_utils.get_modules(args)
 		datamodule.setup('fit')
-		check_labeled_data(datamodule, args.initial_labels)
+		# trainer.fit(model, datamodule)
 
+		check_labeled_data(datamodule, args.initial_labels)
 		datamodule.label_data(model)
 		check_labeled_data(datamodule, args.initial_labels + args.labeling_budget)
 

@@ -41,7 +41,7 @@ def parse_arguments(*args, **kwargs):
 		help="Batch size used for training the model"
 	)
 	parser.add_argument(
-		'--min-epochs', type=int, default=40,
+		'--min-epochs', type=int, default=50,
 		help="Minimum epochs to train before switching to the early stopper"
 	)
 	parser.add_argument(
@@ -50,6 +50,10 @@ def parse_arguments(*args, **kwargs):
 	)
 	parser.add_argument(
 		'--convolutional-pool', type=int, default=2,
+		help="Max pooling used by convolutional layers"
+	)
+	parser.add_argument(
+		'--seed', type=int, default=None,
 		help="Max pooling used by convolutional layers"
 	)
 
@@ -141,7 +145,7 @@ def reset_weights(layer):
 def main():
 	try:
 		args = parse_arguments()
-		use_gpu = torch.cuda.is_available()
+		pl.seed_everything(args.seed, workers=True)
 
 		if args.disable_logging:
 			logger = pl.loggers.base.DummyLogger()
@@ -153,10 +157,11 @@ def main():
 			mode='min',
 			patience=args.early_stopping_patience
 		)
-		early_stopping_callback.on_train_end
+		use_gpu = torch.cuda.is_available()
 		trainer = pl.Trainer(
 			gpus=int(use_gpu),
 			auto_select_gpus=use_gpu,
+			deterministic=(args.seed is not None),
 			log_every_n_steps=10,
 			min_epochs=args.min_epochs,
 			max_epochs=-1,
