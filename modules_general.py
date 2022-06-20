@@ -370,8 +370,7 @@ class IALDataModule(pl.LightningDataModule):
 
 		def calc_hvp(loss, s_test):
 			first_grads = torch.autograd.grad(loss, params, create_graph=True, retain_graph=True)
-			elemwise_products = sum(torch.sum(grad_i * s_test_i) for grad_i, s_test_i in zip(first_grads, s_test))
-			gradients = torch.autograd.grad(elemwise_products, params, create_graph=True, retain_graph=False)
+			gradients = torch.autograd.grad(first_grads, params, s_test, create_graph=True, retain_graph=False)
 			return [gradient.detach() for gradient in gradients]
 
 		def calc_v():
@@ -401,7 +400,9 @@ class IALDataModule(pl.LightningDataModule):
 					print("   hvp", hvp[-1][0].item())
 					print("s_test", s_test[-1][0].item())
 
-					s_test = [(v_i + s_test_i - hvp_i).detach() for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
+					damp = 0.01
+					scale = 1e5
+					s_test = [(v_i + (1-damp)*s_test_i - hvp_i/scale).detach() for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
 
 					# DEBUGGING STUFF
 					print("new_st", s_test[-1][0].item())
