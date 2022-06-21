@@ -115,6 +115,14 @@ def parse_arguments(*args, **kwargs):
 		'--hal-gaussian-variance', type=float, default=10,
 		help="Variance used by HAL-G aquisition in calculating gaussian distance"
 	)
+	parser.add_argument(
+		'--influence-damp', type=percentage, default=0.01,
+		help="Damping factor used for calculating s_test in influence calculation"
+	)
+	parser.add_argument(
+		'--influence-scale', type=percentage, default=1e5,
+		help="Scaling factor used for calculating s_test in influence calculation"
+	)
 
 	# Device related
 	parser.add_argument(

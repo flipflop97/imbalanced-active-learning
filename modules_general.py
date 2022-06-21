@@ -388,31 +388,38 @@ class IALDataModule(pl.LightningDataModule):
 			s_test = v.copy()
 
 			current_iteration = 0
-			while current_iteration < self.hparams.influence_max_iterations:
+			cur_diff = numpy.inf
+			diff_diff = [numpy.inf]*5
+			go = True
+			while go:
 				for images, targets in self.labeled_dataloader_single():
 					predictions, _ = model(images)
 					loss = model.loss(predictions, targets)
 					hvp = calc_hvp(loss, s_test)
 
-					# DEBUGGING STUFF
-					print("cur_it", current_iteration)
-					print("     v", v[-1][0].item())
-					print("   hvp", hvp[-1][0].item())
-					print("s_test", s_test[-1][0].item())
-
-					damp = 0.01
-					scale = 1e5
-					s_test = [(v_i + (1-damp)*s_test_i - hvp_i/scale).detach() for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)]
-
-					# DEBUGGING STUFF
-					print("new_st", s_test[-1][0].item())
-					print()
-					for unit in hvp:
+					s_test_old = s_test
+					damp = 1 - self.hparams.influence_damp
+					scale = 1 / self.hparams.influence_scale
+					s_test = [(v_i + damp*s_test_i - scale*hvp_i).detach()
+						for v_i, s_test_i, hvp_i in zip(v, s_test, hvp)
+					]
+					for unit in s_test:
 						if unit.isnan().any():
 							raise ValueError("One or more values of s_test bacame NaN")
 
+					# Check euclidian distance of 5 neighbouring s_test vector pairs,
+					# if the average difference between those is 0 or lower, assume stable.
+					prev_diff = cur_diff
+					cur_diff = torch.sqrt(sum((s_test_old_i - s_test_i).pow(2).sum()
+						for s_test_old_i, s_test_i in zip(s_test_old, s_test)
+					))
+					diff_diff = diff_diff[-4:] + [prev_diff - cur_diff]
+					not_stabilized = sum(diff_diff) > 0
+
 					current_iteration += 1
-					if current_iteration >= self.hparams.influence_max_iterations:
+					not_at_max = current_iteration < self.hparams.influence_max_iterations
+
+					if not (go := not_stabilized and not_at_max):
 						break
 
 			return s_test

@@ -84,7 +84,7 @@ def test_aquisition_methods(binary: bool = False):
 		# 	gpus=0,
 		# 	logger=None,
 		# 	enable_checkpointing=False,
-		# 	max_epochs=50
+		# 	max_epochs=60
 		# )
 		model, datamodule = data_utils.get_modules(args)
 		datamodule.setup('fit')
