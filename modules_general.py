@@ -365,7 +365,7 @@ class IALDataModule(pl.LightningDataModule):
 
 
 	# https://github.com/nimarb/pytorch_influence_functions/blob/master/pytorch_influence_functions/influence_function.py
-	def rank_influence(self, model: pl.LightningModule):
+	def rank_influence(self, model: pl.LightningModule, real: bool = False):
 		params = [p for p in model.parameters() if p.requires_grad]
 
 		def calc_hvp(loss, s_test):
@@ -424,19 +424,36 @@ class IALDataModule(pl.LightningDataModule):
 
 			return s_test
 
+		def calc_influences():
+			# TODO Is this batchable?
+			influences = []
+			for images, _ in tqdm.tqdm(self.unlabeled_dataloader_single(), desc='Labeling'):
+				predictions, _ = model(images)
+				certainties, targets = model.guess(predictions)
+				loss = model.loss(predictions, targets)
+				g_z = [gradients.detach() * certainties for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
+				influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
+				influences.append(influence)
+
+			return torch.tensor(influences)
+
+		def calc_influences_real():
+			influences = []
+			for images, targets in tqdm.tqdm(self.unlabeled_dataloader_single(), desc='Labeling'):
+				predictions, _ = model(images)
+				loss = model.loss(predictions, targets)
+				g_z = [gradients.detach() for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
+				influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
+				influences.append(influence)
+
+			return torch.tensor(influences)
+
 		s_test = calc_s_test()
+		if real:
+			return calc_influences_real()
+		else:
+			return calc_influences()
 
-		# TODO Is this batchable?
-		influences = []
-		for images, _ in tqdm.tqdm(self.unlabeled_dataloader_single(), desc='Labeling'):
-			predictions, _ = model(images)
-			certainties, targets = model.guess(predictions)
-			loss = model.loss(predictions, targets)
-			g_z = [gradients.detach() * certainties for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
-			influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
-			influences.append(influence)
-
-		return torch.tensor(influences)
 
 	def label_influence(self, amount: int, model: pl.LightningModule):
 		influences = self.rank_influence(model)
@@ -459,6 +476,13 @@ class IALDataModule(pl.LightningDataModule):
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
+	def label_influence_real(self, amount: int, model: pl.LightningModule):
+		influences = self.rank_influence(model, real=True)
+
+		_, top_indices = influences.topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
 
 	def label_data(self, model):
 		aquisition_methods = {
@@ -476,6 +500,7 @@ class IALDataModule(pl.LightningDataModule):
 			'influence': self.label_influence,
 			'influence-abs': self.label_influence_abs,
 			'influence-neg': self.label_influence_neg,
+			'influence-real': self.label_influence_real,
 		}
 
 		cb_before = self.class_balance / len(self.data_train) * 100

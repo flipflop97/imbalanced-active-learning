@@ -68,7 +68,7 @@ def test_aquisition_methods(binary: bool = False):
 			'k-center-greedy',
 			'class-balanced-greedy',
 			'hal-r', 'hal-g',
-			'influence', 'influence-abs', 'influence-neg',
+			'influence', 'influence-abs', 'influence-neg', 'influence-real'
 		]:
 		print(f"\n{TEXT_BOLD}Testing aquisition method {aquisition_method}{TEXT_DEFAULT}")
 
