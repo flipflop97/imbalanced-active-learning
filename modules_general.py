@@ -483,6 +483,20 @@ class IALDataModule(pl.LightningDataModule):
 		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
 		self.label_indices(chosen_indices)
 
+	def label_influence_abs_real(self, amount: int, model: pl.LightningModule):
+		influences = self.rank_influence(model, real=True).abs()
+
+		_, top_indices = influences.topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
+	def label_influence_neg_real(self, amount: int, model: pl.LightningModule):
+		influences = -self.rank_influence(model, real=True)
+
+		_, top_indices = influences.topk(amount)
+		chosen_indices = [self.data_unlabeled.indices[i] for i in top_indices]
+		self.label_indices(chosen_indices)
+
 
 	def label_data(self, model):
 		aquisition_methods = {
@@ -501,6 +515,8 @@ class IALDataModule(pl.LightningDataModule):
 			'influence-abs': self.label_influence_abs,
 			'influence-neg': self.label_influence_neg,
 			'influence-real': self.label_influence_real,
+			'influence-abs-real': self.label_influence_abs_real,
+			'influence-neg-real': self.label_influence_neg_real,
 		}
 
 		cb_before = self.class_balance / len(self.data_train) * 100
