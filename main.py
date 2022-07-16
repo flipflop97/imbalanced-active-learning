@@ -6,6 +6,7 @@ import torch
 import pytorch_lightning as pl
 
 import data_utils
+import modules_callbacks
 
 
 def parse_arguments(*args, **kwargs):
@@ -45,8 +46,8 @@ def parse_arguments(*args, **kwargs):
 		help="Minimum epochs to train before switching to the early stopper"
 	)
 	parser.add_argument(
-		'--convolutional-stride', type=int, default=3,
-		help="Stride used by convolutional layers"
+		'--convolutional-size', type=int, default=3,
+		help="Size used by convolutional layers"
 	)
 	parser.add_argument(
 		'--convolutional-pool', type=int, default=2,
@@ -54,7 +55,7 @@ def parse_arguments(*args, **kwargs):
 	)
 	parser.add_argument(
 		'--seed', type=int, default=None,
-		help="Max pooling used by convolutional layers"
+		help="Seed used throughout the model"
 	)
 
 	# Active learning related

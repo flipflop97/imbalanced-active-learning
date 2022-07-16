@@ -551,11 +551,11 @@ class IALModel(pl.LightningModule):
 		final_size = image_size
 		for size in layers_conv:
 			convolutional += [
-				torch.nn.Conv2d(size_prev, size, self.hparams.convolutional_stride),
+				torch.nn.Conv2d(size_prev, size, self.hparams.convolutional_size),
 				torch.nn.ReLU(),
 				torch.nn.MaxPool2d(self.hparams.convolutional_pool, self.hparams.convolutional_pool)
 			]
-			final_size = (final_size - self.hparams.convolutional_stride + 1) // self.hparams.convolutional_pool
+			final_size = (final_size - self.hparams.convolutional_size + 1) // self.hparams.convolutional_pool
 			size_prev = size
 		convolutional.append(torch.nn.Flatten(1))
 		self.convolutional = torch.nn.Sequential(*convolutional)

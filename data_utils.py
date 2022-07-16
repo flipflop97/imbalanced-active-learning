@@ -60,11 +60,11 @@ def get_modules(args):
 	elif args.dataset == 'cifar10':
 		import modules_cifar10
 		datamodule = modules_cifar10.CIFAR10DataModule(**vars(args))
-		model = modules_general.IALModel(32, 3, [6, 16], [128, 64], 10, **vars(args))
+		model = modules_general.IALModel(32, 3, [12, 16, 20], [128, 64], 10, **vars(args))
 	elif args.dataset == 'svhn':
 		import modules_svhn
 		datamodule = modules_svhn.SVHNDataModule(**vars(args))
-		model = modules_general.IALModel(32, 3, [6, 16], [128, 64], 10, **vars(args))
+		model = modules_general.IALModel(32, 3, [12, 16, 20], [128, 64], 10, **vars(args))
 	else:
 		raise ValueError('Given dataset is not available')
 
