@@ -432,7 +432,7 @@ class IALDataModule(pl.LightningDataModule):
 				certainties, targets = model.guess(predictions)
 				loss = model.loss(predictions, targets)
 				g_z = [gradients.detach() * certainties for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
-				influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
+				influence = sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
 				influences.append(influence)
 
 			return torch.tensor(influences)
@@ -443,7 +443,7 @@ class IALDataModule(pl.LightningDataModule):
 				predictions, _ = model(images)
 				loss = model.loss(predictions, targets)
 				g_z = [gradients.detach() for gradients in torch.autograd.grad(loss, params, create_graph=True, retain_graph=False)]
-				influence = -sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
+				influence = sum(float(torch.sum(s_test_i * g_z_i)) for s_test_i, g_z_i in zip(s_test, g_z))
 				influences.append(influence)
 
 			return torch.tensor(influences)
