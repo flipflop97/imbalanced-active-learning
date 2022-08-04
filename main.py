@@ -6,7 +6,6 @@ import torch
 import pytorch_lightning as pl
 
 import data_utils
-import modules_callbacks
 
 
 def parse_arguments(*args, **kwargs):
